@@ -39,7 +39,7 @@ inline constexpr std::string_view kLambdaFunctionHandler = "FunctionHandler";
 /**
  * The name of the AWS IAM role for the Lambda function.
  */
-inline constexpr std::string_view kLambdaFunctionRoleName = "AWSLambda";
+inline constexpr std::string_view kLambdaFunctionRoleName = "IAM-role-bori00-skyrise";
 
 inline const std::string kLambdaFunctionUrlParametersAttribute = "queryStringParameters";
 
