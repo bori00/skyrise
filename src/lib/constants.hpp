@@ -75,13 +75,13 @@ inline constexpr uint32_t kParquetFooterMetadataOffsetBytes = 8;
 /**
  * Coordinator binary and function names.
  */
-inline const std::string kCoordinatorBinaryName = "skyriseCoordinatorFunction";
+inline const std::string kCoordinatorBinaryName = "skyriseCoordinatorFunction-osJfNrQi";
 inline const std::string kCoordinatorFunctionName = kCoordinatorBinaryName;
 
 /**
  * Worker binary and function names.
  */
-inline const std::string kWorkerBinaryName = "skyriseWorkerFunction";
+inline const std::string kWorkerBinaryName = "skyriseWorkerFunction-J5bl7ANi";
 inline const std::string kWorkerFunctionName = kWorkerBinaryName;
 
 /**
