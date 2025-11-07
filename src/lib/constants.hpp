@@ -39,7 +39,7 @@ inline constexpr std::string_view kLambdaFunctionHandler = "FunctionHandler";
 /**
  * The name of the AWS IAM role for the Lambda function.
  */
-inline constexpr std::string_view kLambdaFunctionRoleName = "IAM-role-bori00-skyrise";
+inline constexpr std::string_view kLambdaFunctionRoleName = "AWSLambda";  // "IAM-role-bori00-skyrise";
 
 inline const std::string kLambdaFunctionUrlParametersAttribute = "queryStringParameters";
 
@@ -53,7 +53,7 @@ inline constexpr uint16_t kLambdaNetworkTokenBucketRefillSeconds = 3;
 /**
  *  At 1,769 MB, a function has the equivalent of one vCPU (one vCPU-second of credits per second).
  */
-inline constexpr uint16_t kLambdaVcpuEquivalentMemorySizeMb = 1769;
+inline constexpr uint16_t kLambdaVcpuEquivalentMemorySizeMb = 600;
 
 inline constexpr uint16_t kLambdaMaximumMemorySizeMb = 10240;
 
@@ -75,13 +75,13 @@ inline constexpr uint32_t kParquetFooterMetadataOffsetBytes = 8;
 /**
  * Coordinator binary and function names.
  */
-inline const std::string kCoordinatorBinaryName = "skyriseCoordinatorFunction-osJfNrQi";
+inline const std::string kCoordinatorBinaryName = "skyriseCoordinatorFunction";
 inline const std::string kCoordinatorFunctionName = kCoordinatorBinaryName;
 
 /**
  * Worker binary and function names.
  */
-inline const std::string kWorkerBinaryName = "skyriseWorkerFunction-J5bl7ANi";
+inline const std::string kWorkerBinaryName = "skyriseWorkerFunction";
 inline const std::string kWorkerFunctionName = kWorkerBinaryName;
 
 /**
