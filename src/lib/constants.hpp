@@ -39,7 +39,7 @@ inline constexpr std::string_view kLambdaFunctionHandler = "FunctionHandler";
 /**
  * The name of the AWS IAM role for the Lambda function.
  */
-inline constexpr std::string_view kLambdaFunctionRoleName = "AWSLambda";  // "IAM-role-bori00-skyrise";
+inline constexpr std::string_view kLambdaFunctionRoleName = "IAM-role-bori00-skyrise";  // "AWSLambda";
 
 inline const std::string kLambdaFunctionUrlParametersAttribute = "queryStringParameters";
 
@@ -55,7 +55,7 @@ inline constexpr uint16_t kLambdaNetworkTokenBucketRefillSeconds = 3;
  */
 inline constexpr uint16_t kLambdaVcpuEquivalentMemorySizeMb = 600;
 
-inline constexpr uint16_t kLambdaMaximumMemorySizeMb = 10240;
+inline constexpr uint16_t kLambdaMaximumMemorySizeMb = 3000;
 
 /**
  * The size of the footer in Parquet files.
@@ -76,13 +76,13 @@ inline constexpr uint32_t kParquetFooterMetadataOffsetBytes = 8;
  * Coordinator binary and function names.
  */
 inline const std::string kCoordinatorBinaryName = "skyriseCoordinatorFunction";
-inline const std::string kCoordinatorFunctionName = kCoordinatorBinaryName;
+inline const std::string kCoordinatorFunctionName = "skyriseCoordinatorFunction";
 
 /**
  * Worker binary and function names.
  */
 inline const std::string kWorkerBinaryName = "skyriseWorkerFunction";
-inline const std::string kWorkerFunctionName = kWorkerBinaryName;
+inline const std::string kWorkerFunctionName = "skyriseWorkerFunction";
 
 /**
  * Response queue name prefix.
@@ -143,17 +143,17 @@ inline const std::string kWorkerResponseExportDataSizeBytesAttribute = "export_d
 /**
  * S3 bucket for benchmark datasets.
  */
-inline const std::string kS3BenchmarkDatasetsBucket = "benchmark-data-sets";
+inline const std::string kS3BenchmarkDatasetsBucket = "skyrise-dataset-bucket";
 
 /**
  * Storage containers for benchmarks.
  */
-inline const std::string kSkyriseBenchmarkContainer = "skyrise-benchmark";
+inline const std::string kSkyriseBenchmarkContainer = "skyrise-benchmark-container";
 inline const std::string kS3ExpressBucket = "skyrise-benchmark--use1-az4--x-s3";
 
 /**
  * S3 bucket for CI tests.
  */
-inline const std::string kSkyriseTestBucket = "skyrise-ci";
+inline const std::string kSkyriseTestBucket = "skyrise-test-bucket";
 
 }  // namespace skyrise
