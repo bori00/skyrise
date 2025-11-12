@@ -21,8 +21,6 @@ int main(int argc, char** argv) {
     option_adder("worker_memory_size_mb", "The memory assigned to each worker, in MB.", cxxopts::value<size_t>());
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
-    std::cout << "Hi" << parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count").has_value()
-              << std::endl;
 
     auto benchmark = std::make_shared<skyrise::SystemBenchmark>(
         executable.GetClient().GetIamClient(), executable.GetClient().GetLambdaClient(),

@@ -21,8 +21,12 @@
 namespace skyrise {
 
 TpchPqpGenerator::TpchPqpGenerator(const QueryId& query_id, const ScaleFactor& scale_factor,
-                                   const ObjectReference& shuffle_storage_prefix)
-    : AbstractCompiler(query_id, scale_factor, shuffle_storage_prefix) {}
+                                   const ObjectReference& shuffle_storage_prefix,
+                                   const std::optional<size_t> stage_1_partitions_per_worker_count,
+                                   const std::optional<size_t> shuffle_partitions_count)
+    : AbstractCompiler(query_id, scale_factor, shuffle_storage_prefix),
+      stage_1_partitions_per_worker_count_(stage_1_partitions_per_worker_count),
+      shuffle_partitions_count_(shuffle_partitions_count) {}
 
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GeneratePqp() const {
   std::vector<std::shared_ptr<PqpPipeline>> result;
@@ -111,6 +115,53 @@ std::shared_ptr<PqpPipeline> TpchPqpGenerator::GeneratePipeline(const std::strin
   return pipeline;
 }
 
+size_t TpchPqpGenerator::GetStage1PartitionsPerWorkerCount() const {
+  if (stage_1_partitions_per_worker_count_.has_value()) {
+    return stage_1_partitions_per_worker_count_.value();
+  }
+  switch (query_id_) {
+    case QueryId::kTpchQ1:
+      return 1;
+    case QueryId::kTpchQ6:
+      return 5;
+    case QueryId::kTpchQ12:
+      return 3;
+    default:
+      Fail("Unknown query.");
+  }
+}
+
+size_t TpchPqpGenerator::GetShufflePartitionsCount() const {
+  if (shuffle_partitions_count_.has_value()) {
+    return shuffle_partitions_count_.value();
+  }
+  switch (query_id_) {
+    case QueryId::kTpchQ1:
+      return 1;
+    case QueryId::kTpchQ6:
+      return 1;
+    case QueryId::kTpchQ12:
+      switch (scale_factor_) {
+        case ScaleFactor::kSf1: {
+          return 3;
+        } break;
+        case ScaleFactor::kSf10: {
+          return 10;
+        } break;
+        case ScaleFactor::kSf100: {
+          return 100;
+        } break;
+        case ScaleFactor::kSf1000: {
+          return 1000;
+        }
+        default:
+          Fail("Unknown scale factor.");
+      }
+    default:
+      Fail("Unknown query.");
+  }
+}
+
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ1Pipeline1(
     const std::vector<ObjectReference>& /*input_objects*/) {
   return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
@@ -172,7 +223,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(aggregate_operator);
 
   const std::string pipeline_id = "pipeline-1";
-  const size_t worker_count = (input_objects.size() / 5) + (input_objects.size() % 5);
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   return {output_objects, GeneratePipeline(pipeline_id, import_id, export_operator, kIntermediateResultsExportFormat,
                                            input_objects, output_objects)};
@@ -269,7 +322,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-1";
-  const size_t worker_count = input_objects.size();  //((input_objects.size() / 5) + (input_objects.size() % 5));
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -292,7 +347,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-2";
-  const size_t worker_count = input_objects.size();  // / 3) + (input_objects.size() % 3);
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
   AWS_LOGSTREAM_INFO("pqp_generator", "Worker count pipeline 2 Q12: " << worker_count);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
@@ -409,21 +466,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 }
 
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const {
-  size_t partition_count = 0;
-  switch (scale_factor_) {
-    case ScaleFactor::kSf1: {
-      partition_count = 3;
-    } break;
-    case ScaleFactor::kSf10: {
-      partition_count = 10;
-    } break;
-    case ScaleFactor::kSf100: {
-      partition_count = 100;
-    } break;
-    case ScaleFactor::kSf1000: {
-      partition_count = 500;
-    }
-  }
+  size_t partition_count = GetStage1PartitionsPerWorkerCount();
 
   const auto pipeline1 = GenerateQ12Pipeline1(partition_count, ListTableObjects("lineitem", FileFormat::kParquet));
   const auto pipeline2 = GenerateQ12Pipeline2(partition_count, ListTableObjects("orders", FileFormat::kParquet));
@@ -439,16 +482,23 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const 
 
 TpchPqpGeneratorConfig::TpchPqpGeneratorConfig(const CompilerName& compiler_name, const QueryId& query_id,
                                                const ScaleFactor& scale_factor,
-                                               const ObjectReference& shuffle_storage_prefix)
-    : AbstractCompilerConfig(compiler_name, query_id, scale_factor, shuffle_storage_prefix) {}
+                                               const ObjectReference& shuffle_storage_prefix,
+                                               const std::optional<size_t> stage_1_partitions_per_worker_count,
+                                               const std::optional<size_t> shuffle_partitions_count)
+    : AbstractCompilerConfig(compiler_name, query_id, scale_factor, shuffle_storage_prefix),
+      stage_1_partitions_per_worker_count_(stage_1_partitions_per_worker_count),
+      shuffle_partitions_count_(shuffle_partitions_count) {}
 
 std::shared_ptr<AbstractCompiler> TpchPqpGeneratorConfig::GenerateCompiler() const {
-  return std::make_shared<TpchPqpGenerator>(query_id_, scale_factor_, shuffle_storage_);
+  return std::make_shared<TpchPqpGenerator>(query_id_, scale_factor_, shuffle_storage_,
+                                            stage_1_partitions_per_worker_count_, shuffle_partitions_count_);
 }
 
 bool TpchPqpGeneratorConfig::operator==(const TpchPqpGeneratorConfig& other) const {
   return query_id_ == other.query_id_ && scale_factor_ == other.scale_factor_ &&
-         shuffle_storage_ == other.shuffle_storage_;
+         shuffle_storage_ == other.shuffle_storage_ &&
+         stage_1_partitions_per_worker_count_ == other.stage_1_partitions_per_worker_count_ &&
+         shuffle_partitions_count_ == other.shuffle_partitions_count_;
 }
 
 }  // namespace skyrise
