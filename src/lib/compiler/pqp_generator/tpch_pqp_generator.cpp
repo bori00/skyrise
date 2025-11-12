@@ -269,7 +269,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-1";
-  const size_t worker_count = ((input_objects.size() / 5) + (input_objects.size() % 5));
+  const size_t worker_count = input_objects.size();  //((input_objects.size() / 5) + (input_objects.size() % 5));
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -292,7 +292,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-2";
-  const size_t worker_count = (input_objects.size() / 3) + (input_objects.size() % 3);
+  const size_t worker_count = input_objects.size();  // / 3) + (input_objects.size() % 3);
+  AWS_LOGSTREAM_INFO("pqp_generator", "Worker count pipeline 2 Q12: " << worker_count);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -417,10 +418,10 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const 
       partition_count = 10;
     } break;
     case ScaleFactor::kSf100: {
-      partition_count = 30;
+      partition_count = 100;
     } break;
     case ScaleFactor::kSf1000: {
-      partition_count = 100;
+      partition_count = 500;
     }
   }
 
