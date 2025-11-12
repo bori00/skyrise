@@ -14,8 +14,15 @@ int main(int argc, char** argv) {
     option_adder("repetition_count", "The repetition count", cxxopts::value<size_t>());
     option_adder("after_repetition_delays_min", "The after repetition delays [min]",
                  cxxopts::value<std::vector<size_t>>());
+    option_adder("stage_1_partitions_per_worker_count",
+                 "The number of input table partitions processed by one worker in stage 1.", cxxopts::value<size_t>());
+    option_adder("shuffle_partitions_count", "The number of partitions in each shuffle stage of the query.",
+                 cxxopts::value<size_t>());
+    option_adder("worker_memory_size_mb", "The memory assigned to each worker, in MB.", cxxopts::value<size_t>());
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
+    std::cout << "Hi" << parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count").has_value()
+              << std::endl;
 
     auto benchmark = std::make_shared<skyrise::SystemBenchmark>(
         executable.GetClient().GetIamClient(), executable.GetClient().GetLambdaClient(),
@@ -24,7 +31,10 @@ int main(int argc, char** argv) {
         skyrise::ParseQueryId(parse_result["query_id"].as<std::string>()),
         skyrise::ParseScaleFactor(parse_result["scale_factor"].as<std::string>()),
         parse_result["concurrent_instance_count"].as<size_t>(), parse_result["repetition_count"].as<size_t>(),
-        parse_result["after_repetition_delays_min"].as<std::vector<size_t>>());
+        parse_result["after_repetition_delays_min"].as<std::vector<size_t>>(),
+        parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count"),
+        parse_result.as_optional<size_t>("shuffle_partitions_count"),
+        parse_result.as_optional<size_t>("worker_memory_size_mb"));
     executable.ExecuteBenchmark(benchmark);
   } catch (const std::exception& exception) {
     std::cout << exception.what() << "\n";
