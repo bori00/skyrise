@@ -53,9 +53,9 @@ inline constexpr uint16_t kLambdaNetworkTokenBucketRefillSeconds = 3;
 /**
  *  At 1,769 MB, a function has the equivalent of one vCPU (one vCPU-second of credits per second).
  */
-inline constexpr uint16_t kLambdaVcpuEquivalentMemorySizeMb = 750;
+inline constexpr uint16_t kLambdaVcpuEquivalentMemorySizeMb = 1769;
 
-inline constexpr uint16_t kLambdaMaximumMemorySizeMb = 3000;
+inline constexpr uint16_t kLambdaMaximumMemorySizeMb = 10240;
 
 /**
  * The size of the footer in Parquet files.
@@ -118,8 +118,8 @@ inline const std::string kCoordinatorRequestQueryStringAttribute = "query_string
 inline const std::string kCoordinatorRequestScaleFactorAttribute = "scale_factor";
 inline const std::string kCoordinatorRequestShuffleStorageAttribute = "storage_prefix";
 inline const std::string kCoordinatorRequestWorkerFunctionAttribute = "worker_function_name";
-inline const std::string kCoordinatorRequestStage1PartitionsPerWorkerCount = "stage_1_partitions_per_worker";
-inline const std::string kCoordinatorRequestShufflePartitionsCount = "shuffle_partitions_count";
+inline const std::string kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute = "stage_1_partitions_per_worker";
+inline const std::string kCoordinatorRequestShufflePartitionsCountAttribute = "shuffle_partitions_count";
 inline const std::string kCoordinatorResponseResultObjectAttribute = "result";
 inline const std::string kCoordinatorResponseResultUrlStringAttribute = "result_url";
 inline const std::string kCoordinatorResponseExecutionStatisticsAttribute = "execution_statistics";
@@ -128,6 +128,7 @@ inline const std::string kCoordinatorResponseMemorySizeAttribute = "coordinator_
 inline const std::string kCoordinatorResponseWorkerMemorySizeAttribute = "worker_memory_size_mb";
 inline const std::string kCoordinatorResponseWorkerInvocationCountAttribute = "worker_invocation_count";
 inline const std::string kCoordinatorResponseWorkerAccumulatedRuntimeAttribute = "worker_accumulated_runtime_ms";
+inline const std::string kCorodinatorResponseExecutionCostCentAttribute = "execution_cost_cent";
 
 /**
  * Worker request and response parameters.

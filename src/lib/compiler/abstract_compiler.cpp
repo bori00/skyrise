@@ -29,12 +29,12 @@ std::shared_ptr<AbstractCompilerConfig> AbstractCompilerConfig::FromJson(const A
   const ObjectReference shuffle_storage =
       ObjectReference::FromJson(json.GetObject(kCoordinatorRequestShuffleStorageAttribute));
   const std::optional<size_t> stage_1_partitions_per_worker_count =
-      json.KeyExists(kCoordinatorRequestStage1PartitionsPerWorkerCount)
-          ? std::optional<size_t>(json.GetInt64(kCoordinatorRequestStage1PartitionsPerWorkerCount))
+      json.KeyExists(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute)
+          ? std::optional<size_t>(json.GetInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute))
           : std::nullopt;
   const std::optional<int> shuffle_partitions_count =
-      json.KeyExists(kCoordinatorRequestShufflePartitionsCount)
-          ? std::optional<size_t>(json.GetInt64(kCoordinatorRequestShufflePartitionsCount))
+      json.KeyExists(kCoordinatorRequestShufflePartitionsCountAttribute)
+          ? std::optional<size_t>(json.GetInt64(kCoordinatorRequestShufflePartitionsCountAttribute))
           : std::nullopt;
 
   switch (compiler_name) {

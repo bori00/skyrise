@@ -113,10 +113,19 @@ void BenchmarkExecutable::ExecuteBenchmark(const std::shared_ptr<skyrise::Abstra
 
   const auto output =
       Aws::Utils::Json::JsonValue()
-          .WithObject("context", Aws::Utils::Json::JsonValue()
-                                     .WithString("name", benchmark->Name())
-                                     .WithString("commit", GitMetadata::CommitSha1())
-                                     .WithString("date", skyrise::GetFormattedTimestamp("%Y/%m/%d-%H:%M:%S")))
+          .WithObject(
+              "context",
+              Aws::Utils::Json::JsonValue()
+                  .WithString("name", benchmark->Name())
+                  .WithString("commit", GitMetadata::CommitSha1())
+                  .WithString("query", cli_parse_result_["query_id"].as<std::string>())
+                  .WithInt64("stage_1_partitions_per_worker_count",
+                             cli_parse_result_.as_optional<size_t>("stage_1_partitions_per_worker_count").value_or(-1))
+                  .WithInt64("shuffle_partitions_count",
+                             cli_parse_result_.as_optional<size_t>("shuffle_partitions_count").value_or(-1))
+                  .WithInt64("worker_memory_size_mb",
+                             cli_parse_result_.as_optional<size_t>("worker_memory_size_mb").value_or(-1))
+                  .WithString("date", skyrise::GetFormattedTimestamp("%Y/%m/%d-%H:%M:%S")))
           .WithArray("runs", benchmark_result);
 
   skyrise::WriteStringToFile(output.View().WriteReadable(), cli_parse_result_["output"].as<std::string>());

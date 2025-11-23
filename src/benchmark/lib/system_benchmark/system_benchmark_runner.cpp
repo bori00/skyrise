@@ -37,7 +37,7 @@ void SystemBenchmarkRunner::Setup() {
       config_->GetBenchmarkTimestamp() + "-" + "systemBenchmark" + "-" + config_->GetBenchmarkId();
 
   const size_t worker_memory_size =
-      typed_config_->GetWorkerMemorySizeMb().value_or(4 /* vCPUs count */ * kLambdaVcpuEquivalentMemorySizeMb);
+      typed_config_->GetWorkerMemorySizeMb().value_or(kDefaultWorkerVCPUCount * kLambdaVcpuEquivalentMemorySizeMb);
   Assert(worker_memory_size <= kLambdaMaximumMemorySizeMb, "The worker's memory cannot be ");
 
   UploadFunctions(iam_client_, lambda_client_,
@@ -46,6 +46,8 @@ void SystemBenchmarkRunner::Setup() {
                                               {GetFunctionZipFilePath(kWorkerBinaryName), worker_function_name_,
                                                worker_memory_size, true, false}},
                   false);
+
+  std::cout << "Uploaded functions: " << worker_function_name_ << " " << coordinator_function_name_ << "\n";
 }
 
 void SystemBenchmarkRunner::Teardown() {
@@ -78,11 +80,11 @@ std::shared_ptr<AbstractBenchmarkResult> SystemBenchmarkRunner::OnRunConfig() {
             .WithString(kCoordinatorRequestWorkerFunctionAttribute, worker_function_name_);
 
     if (typed_config_->GetStage1PartitionsPerWorkerCount().has_value()) {
-      payload = payload.WithInt64(kCoordinatorRequestStage1PartitionsPerWorkerCount,
+      payload = payload.WithInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute,
                                   typed_config_->GetStage1PartitionsPerWorkerCount().value());
     }
     if (typed_config_->GetShufflePartitionsCount().has_value()) {
-      payload = payload.WithInt64(kCoordinatorRequestShuffleStorageAttribute,
+      payload = payload.WithInt64(kCoordinatorRequestShufflePartitionsCountAttribute,
                                   typed_config_->GetShufflePartitionsCount().value());
     }
     const auto request_payload_stream = std::make_shared<std::stringstream>(payload.View().WriteCompact());
