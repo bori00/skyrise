@@ -94,6 +94,8 @@ std::shared_ptr<AbstractBenchmarkResult> SystemBenchmarkRunner::OnRunConfig() {
     if (outcome.IsSuccess()) {
       auto& response_payload_stream = outcome.GetResult().GetPayload();
       results[i] = Aws::Utils::Json::JsonValue(response_payload_stream);
+      results[i].WithString("WorkerFunction", worker_function_name_);
+      results[i].WithString("CoordinatorFunction", coordinator_function_name_);
     } else {
       AWS_LOGSTREAM_ERROR(kBenchmarkTag.c_str(), outcome.GetError().GetMessage());
     }
