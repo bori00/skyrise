@@ -5,6 +5,7 @@
 
 #include <aws/core/utils/base64/Base64.h>
 #include <aws/lambda/model/InvokeRequest.h>
+#include <aws/sqs/model/ChangeMessageVisibilityRequest.h>
 #include <aws/sqs/model/CreateQueueRequest.h>
 #include <aws/sqs/model/DeleteMessageRequest.h>
 #include <aws/sqs/model/DeleteQueueRequest.h>
@@ -31,6 +32,9 @@ LambdaExecutor::~LambdaExecutor() {
 void LambdaExecutor::Execute(
     const std::shared_ptr<PqpPipeline>& pqp_pipeline,
     const std::function<void(std::shared_ptr<PqpPipelineFragmentExecutionResult>)>& on_finished_callback) {
+  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Executing lambda pipeline "
+                                                  << pqp_pipeline->Identity()
+                                                  << " on SQS queue: " << sqs_response_queue_url_);
   Aws::Lambda::Model::InvokeRequest invoke_request;
   invoke_request.WithFunctionName(worker_function_name_).WithInvocationType(Aws::Lambda::Model::InvocationType::Event);
 
@@ -58,6 +62,7 @@ void LambdaExecutor::Execute(
 
     const std::string worker_id = worker_id_prefix + std::to_string(worker_count);
     request_body.WithString(kWorkerRequestIdAttribute, worker_id)
+        .WithString("pipeline_id", pipeline_id)
         .WithString(kRequestResponseQueueUrlAttribute, sqs_response_queue_url_);
 
     std::string payload = request_body.View().WriteCompact();
@@ -118,22 +123,40 @@ void LambdaExecutor::CollectSqsMessages(
       const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
       const auto response_view = response.View();
       // We set the result to successful, as we received a message.
-      const auto fragment_result =
-          std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
-              .pipeline_id = pipeline_id,
-              .worker_id = response_view.GetString(kWorkerResponseIdAttribute),
-              .is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0,
-              .message = response_view.GetString(kResponseMessageAttribute),
-              .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
-              .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
-              .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
-              .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
+      if (pipeline_id == response_view.GetString("pipeline_id")) {
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Processed - SQS response handler of pipeline "
+                                                        << pipeline_id << " received response of "
+                                                        << response_view.GetString("pipeline_id") << " from worker "
+                                                        << response_view.GetString(kWorkerResponseIdAttribute));
+        const auto fragment_result =
+            std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
+                .pipeline_id = pipeline_id,
+                .worker_id = response_view.GetString(kWorkerResponseIdAttribute),
+                .is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0,
+                .message = response_view.GetString(kResponseMessageAttribute),
+                .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
+                .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
+                .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
+                .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
 
-      const auto delete_message_outcome = sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
-                                                                        .WithQueueUrl(sqs_response_queue_url)
-                                                                        .WithReceiptHandle(message.GetReceiptHandle()));
-      Assert(delete_message_outcome.IsSuccess(), delete_message_outcome.GetError().GetMessage());
-      on_finished_callback(fragment_result);
+        const auto delete_message_outcome =
+            sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
+                                          .WithQueueUrl(sqs_response_queue_url)
+                                          .WithReceiptHandle(message.GetReceiptHandle()));
+        Assert(delete_message_outcome.IsSuccess(), delete_message_outcome.GetError().GetMessage());
+        on_finished_callback(fragment_result);
+      } else {
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Ignored - SQS response handler of pipeline "
+                                                        << pipeline_id << " received response of "
+                                                        << response_view.GetString("pipeline_id") << " from worker "
+                                                        << response_view.GetString(kWorkerResponseIdAttribute));
+        Aws::SQS::Model::ChangeMessageVisibilityRequest request;
+        request.SetQueueUrl(sqs_response_queue_url);
+        request.SetReceiptHandle(message.GetReceiptHandle());
+        request.SetVisibilityTimeout(0);  // 0 seconds = immediately visible
+        const auto outcome = sqs_client->ChangeMessageVisibility(request);
+        Assert(outcome.IsSuccess(), outcome.GetError().GetMessage());
+      }
     }
   };
 
