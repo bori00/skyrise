@@ -77,6 +77,7 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
   }
 
   std::string worker_id = request.GetString(kWorkerRequestIdAttribute);
+  std::string pipeline_id = request.GetString("pipeline_id");
   size_t export_data_size_bytes = 0;
 
   try {
@@ -109,6 +110,9 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
     const auto operator_tree = executable_fragment->GetOrCreateOperatorInstance();
     const auto operator_task = OperatorTask::GenerateTasksFromOperator(operator_tree, context).first;
     AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Starting execution.");
+    AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(),
+                       "Executing worker id "
+                           << worker_id << " on SQS queue: " << request.GetString(kRequestResponseQueueUrlAttribute));
     scheduler->ScheduleAndWaitForTasks(operator_task);
     AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Finished execution.");
     export_data_size_bytes = std::static_pointer_cast<ExportOperator>(operator_tree)->GetBytesWritten();
@@ -127,6 +131,7 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
   response.WithInteger(kResponseIsSuccessAttribute, 1)
       .WithString(kResponseMessageAttribute, "Worker executed successfully.")
       .WithString(kWorkerResponseIdAttribute, worker_id)
+      .WithString("pipeline_id", pipeline_id)
       .WithInteger(kWorkerResponseRuntimeMsAttribute, runtime_ms)
       .WithInteger(kWorkerResponseMemorySizeMbAttribute, memory_size_mb)
       .WithInt64(kWorkerResponseExportDataSizeBytesAttribute, export_data_size_bytes);
