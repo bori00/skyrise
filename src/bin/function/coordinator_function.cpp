@@ -3,6 +3,8 @@
 #include <vector>
 
 #include <aws/core/utils/json/JsonSerializer.h>
+#include <boost/math/tools/config.hpp>
+#include <boost/mpl/min_max.hpp>
 
 #include "client/coordinator_client.hpp"
 #include "compiler/abstract_compiler.hpp"
@@ -13,6 +15,49 @@
 
 namespace {
 
+struct PipelineWorkerStatistics final {
+  explicit PipelineWorkerStatistics() = default;
+
+  size_t fragment_count;
+  std::vector<size_t> fragment_runtimes;
+  size_t average_runtime_ms;
+  size_t max_fragment_runtime_ms;
+
+  Aws::Utils::Json::JsonValue ToJson() const {
+    Aws::Utils::Json::JsonValue pipeline_json;
+
+    pipeline_json.WithInteger("fragment_count", fragment_count)
+        .WithInteger("avg_runtime", average_runtime_ms)
+        .WithInteger("max_fragment_runtime", max_fragment_runtime_ms);
+
+    Aws::Utils::Array<Aws::Utils::Json::JsonValue> json_fragment_runtimes(fragment_count);
+
+    for (size_t i = 0; i < fragment_count; ++i) {
+      Aws::Utils::Json::JsonValue runtime_json;
+      json_fragment_runtimes[i] = runtime_json.AsInteger(fragment_runtimes[i]);
+    }
+
+    pipeline_json.WithArray("fragment_runtimes", json_fragment_runtimes);
+
+    return pipeline_json;
+  }
+};
+
+PipelineWorkerStatistics GetPipelineWorkerStatistics(const std::shared_ptr<skyrise::PqpPipelineTask>& pipeline_task) {
+  PipelineWorkerStatistics statistics;
+  statistics.fragment_count = pipeline_task->fragment_execution_results.size();
+  statistics.max_fragment_runtime_ms = 0;
+  statistics.average_runtime_ms = 0;
+  for (const auto& fragment_execution_result : pipeline_task->fragment_execution_results) {
+    statistics.fragment_runtimes.push_back(fragment_execution_result->runtime_ms);
+    statistics.average_runtime_ms += fragment_execution_result->runtime_ms;
+    statistics.max_fragment_runtime_ms =
+        std::max(statistics.max_fragment_runtime_ms, fragment_execution_result->runtime_ms);
+  }
+  statistics.average_runtime_ms /= statistics.fragment_count;
+  return statistics;
+}
+
 struct WorkerStatistics final {
   explicit WorkerStatistics() = default;
 
@@ -20,6 +65,7 @@ struct WorkerStatistics final {
   size_t worker_invocation_count{0};
   size_t worker_accumulated_runtime_ms{0};
   std::map<std::string, size_t> worker_accumulated_request_counts;
+  std::map<std::string, PipelineWorkerStatistics> pipeline_workers_statistics;
 };
 
 WorkerStatistics GetWorkerStatistics(const std::vector<std::shared_ptr<skyrise::PqpPipelineTask>>& pipeline_tasks) {
@@ -38,6 +84,9 @@ WorkerStatistics GetWorkerStatistics(const std::vector<std::shared_ptr<skyrise::
 
     statistics.worker_invocation_count += fragment_execution_results.size();
 
+    statistics.pipeline_workers_statistics[pipeline_task->pqp_pipeline->Identity()] =
+        GetPipelineWorkerStatistics(pipeline_task);
+
     for (const auto& fragment_execution_result : fragment_execution_results) {
       statistics.worker_accumulated_runtime_ms += fragment_execution_result->runtime_ms;
 
@@ -49,6 +98,17 @@ WorkerStatistics GetWorkerStatistics(const std::vector<std::shared_ptr<skyrise::
   }
 
   return statistics;
+}
+
+Aws::Utils::Json::JsonValue GetPipelineWorkerStatisticsJson(const WorkerStatistics& worker_statistics) {
+  Aws::Utils::Json::JsonValue json;
+
+  for (const auto& [pipeline_name, pipeline_stats] : worker_statistics.pipeline_workers_statistics) {
+    Aws::Utils::Json::JsonValue pipeline_stats_json = pipeline_stats.ToJson();
+    json.WithObject(pipeline_name, pipeline_stats_json);
+  }
+
+  return json;
 }
 
 }  // namespace
@@ -118,7 +178,8 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
         .WithInteger(kCoordinatorResponseWorkerInvocationCountAttribute, worker_statistics.worker_invocation_count)
         .WithInteger(kCoordinatorResponseWorkerAccumulatedRuntimeAttribute,
                      worker_statistics.worker_accumulated_runtime_ms)
-        .WithDouble("execution_cost_cent", compute_cost);
+        .WithDouble("execution_cost_cent", compute_cost)
+        .WithObject("pipelines_stats", GetPipelineWorkerStatisticsJson(worker_statistics));
 
     response.WithObject(kCoordinatorResponseResultObjectAttribute, result->ToJson())
         .WithString(kCoordinatorResponseResultUrlStringAttribute, result_url)
