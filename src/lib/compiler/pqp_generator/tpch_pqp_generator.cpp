@@ -247,23 +247,40 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
       Sum_(PqpColumn_(2, DataType::kDouble, false, "sum_disc_price")),
       Sum_(PqpColumn_(3, DataType::kDouble, false, "sum_qty")),
-      Sum_(PqpColumn_(4, DataType::kDouble, false, "l_extendedprice")),
+      Sum_(PqpColumn_(4, DataType::kDouble, false, "sum_extendedprice")),
       Sum_(PqpColumn_(6, DataType::kLong, false, "count")),
       Sum_(PqpColumn_(7, DataType::kDouble, false, "charge")),
+      Sum_(PqpColumn_(5, DataType::kDouble, false, "discount")),
   };
   const std::vector<ColumnId> groupby_column_ids{0, 1};  // l_returnflag, l_linestatus
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
   aggregate_operator->SetLeftInput(import_operator);
 
+  // Get the averages as Sum / Count.
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{
+      PqpColumn_(0, DataType::kString, false, "l_returnflag"),
+      PqpColumn_(1, DataType::kString, false, "l_linestatus"),
+      PqpColumn_(2, DataType::kDouble, false, "sum_disc_price"),
+      PqpColumn_(3, DataType::kDouble, false, "sum_qty"),
+      PqpColumn_(4, DataType::kDouble, false, "sum_price"),
+      PqpColumn_(5, DataType::kLong, false, "count"),
+      PqpColumn_(6, DataType::kDouble, false, "sum_charge"),
+      Div_(PqpColumn_(3, DataType::kDouble, false, "sum_qty"), PqpColumn_(5, DataType::kLong, false, "count")),
+      Div_(PqpColumn_(4, DataType::kDouble, false, "sum_price"), PqpColumn_(5, DataType::kLong, false, "count")),
+      Div_(PqpColumn_(7, DataType::kDouble, false, "sum_disc"), PqpColumn_(5, DataType::kLong, false, "count"))};
+  const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  projection_operator->SetLeftInput(aggregate_operator);
+
   // Sort by returnflag and lineitem.
   const auto sort_operator = std::make_shared<SortOperatorProxy>(
       std::vector<SortColumnDefinition>{SortColumnDefinition(0), SortColumnDefinition(1)});
-  sort_operator->SetLeftInput(aggregate_operator);
+  sort_operator->SetLeftInput(projection_operator);
 
   // Rename columns
-  const std::vector<ColumnId>& column_ids_alias = {0, 1, 2, 3, 4, 5, 6};
+  const std::vector<ColumnId>& column_ids_alias = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
   const std::vector<std::string>& aliases = {"l_returnflag",   "l_linestatus", "sum_disc_price", "sum_qty",
-                                             "sum_base_price", "count_order",  "sum_charge"};
+                                             "sum_base_price", "count_order",  "sum_charge",     "avg_qty",
+                                             "avg_price",      "avg_disc"};
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(column_ids_alias, aliases);
   alias_operator->SetLeftInput(sort_operator);
 
