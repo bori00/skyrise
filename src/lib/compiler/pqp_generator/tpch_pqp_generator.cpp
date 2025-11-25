@@ -178,7 +178,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // Column 0: quantity. Column 1: extendedprice, Column 2: discount. Column 3: returnflag. Column 4: linestatus. Column
   // 5: shipdate.
   const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
-      PredicateCondition::kLessThan, PqpColumn_(5, DataType::kString, false, "l_shipdate"), Value_("1998-09-01"));
+      PredicateCondition::kLessThanEquals, PqpColumn_(5, DataType::kString, false, "l_shipdate"), Value_("1998-09-02"));
   const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
   filter_operator1->SetLeftInput(import_operator);
 
@@ -187,12 +187,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // TODO sum(l_extendedprice * (1 - l_discount)) as sum_disc_price,
   // TODO sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)) as sum_charge,
   std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
-      PqpColumn_(3, DataType::kString, false, "l_returnflag"),
-      PqpColumn_(4, DataType::kString, false, "l_linestatus"),
       Sum_(PqpColumn_(0, DataType::kFloat, false, "l_quantity")),
       Sum_(PqpColumn_(1, DataType::kFloat, false, "l_extendedprice")),
       Sum_(PqpColumn_(2, DataType::kFloat, false, "l_discount")),
-      Count_(Value_(1)),
+      Count_(PqpColumn_(kInvalidColumnId, DataType::kFloat, false, "*")),  // invalid column for count(*)
   };
   const std::vector<ColumnId> groupby_column_ids{3, 4};  // l_returnflag, l_linestatus
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
@@ -217,28 +215,32 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // Column 0: returnflag. Column 1: linestatus, Column 2: sum(quantity). Column 3: sum(extendedprice).
   // Column 4: sum(discount). Column 5: count(*)
   const std::string import_id = "import";
-  const auto import_operator = std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{},
-                                                                     std::vector<ColumnId>{0, 1, 2, 3, 4, 5, 6, 7});
+  const auto import_operator =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2, 3, 4, 5});
   import_operator->SetIdentity(import_id);
 
   // Aggregate the partial aggregates
   // TODO: add avg aggregates
   std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
-      PqpColumn_(0, DataType::kString, false, "l_returnflag"),
-      PqpColumn_(1, DataType::kString, false, "l_linestatus"),
-      Sum_(PqpColumn_(2, DataType::kFloat, false, "sum_qty")),
-      Sum_(PqpColumn_(3, DataType::kFloat, false, "l_extendedprice")),
-      Sum_(PqpColumn_(5, DataType::kInt, false, "count")),
+      Sum_(PqpColumn_(2, DataType::kDouble, false, "sum_qty")),
+      Sum_(PqpColumn_(3, DataType::kDouble, false, "l_extendedprice")),
+      Sum_(PqpColumn_(5, DataType::kLong, false, "count")),
   };
   const std::vector<ColumnId> groupby_column_ids{0, 1};  // l_returnflag, l_linestatus
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
   aggregate_operator->SetLeftInput(import_operator);
 
+  // Sort by returnflag and lineitem.
+  const auto sort_operator = std::make_shared<SortOperatorProxy>(
+      std::vector<SortColumnDefinition>{SortColumnDefinition(0), SortColumnDefinition(1)});
+  sort_operator->SetLeftInput(aggregate_operator);
+
   // Rename columns
-  const std::vector<ColumnId>& column_ids_alias = {2, 3, 4};
-  const std::vector<std::string>& aliases = {"sum_qty", "sum_base_price", "count_order"};
+  const std::vector<ColumnId>& column_ids_alias = {0, 1, 2, 3, 4};
+  const std::vector<std::string>& aliases = {"l_returnflag", "l_linestatus", "sum_qty", "sum_base_price",
+                                             "count_order"};
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(column_ids_alias, aliases);
-  alias_operator->SetLeftInput(aggregate_operator);
+  alias_operator->SetLeftInput(sort_operator);
 
   const auto export_operator = std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), FileFormat::kCsv);
   export_operator->SetLeftInput(alias_operator);
