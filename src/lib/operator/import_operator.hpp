@@ -21,6 +21,8 @@ class ImportOperator : public AbstractOperator {
 
   const std::string& Name() const override;
 
+  size_t BytesConsumed() const;
+
  protected:
   std::shared_ptr<const Table> OnExecute(
       const std::shared_ptr<OperatorExecutionContext>& operator_execution_context) override;
@@ -34,5 +36,6 @@ class ImportOperator : public AbstractOperator {
   std::vector<ColumnId> column_ids_;
   const std::shared_ptr<AbstractChunkReaderFactory> factory_;
   const ImportFormat import_format_;
+  size_t bytes_consumed = 0;
 };
 }  // namespace skyrise

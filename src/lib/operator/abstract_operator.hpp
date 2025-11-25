@@ -78,6 +78,13 @@ class AbstractOperator : public std::enable_shared_from_this<AbstractOperator>, 
   std::shared_ptr<const Table> LeftInputTable() const;
   std::shared_ptr<const Table> RightInputTable() const;
 
+  /**
+   * Returns a list of all operators in the subtree rooted at this operator,
+   * including this operator itself. The order depends on the implementation
+   * (Post-Order is recommended for execution dependency).
+   */
+  std::vector<std::shared_ptr<const AbstractOperator>> GetAllSubOperators() const;
+
  protected:
   /**
    * OnExecute implements the operator's logic.
@@ -92,6 +99,8 @@ class AbstractOperator : public std::enable_shared_from_this<AbstractOperator>, 
   virtual void OnCleanup();
 
  private:
+  void _CollectSubOperatorsRecursive(std::vector<std::shared_ptr<const AbstractOperator>>& operators) const;
+
   const OperatorType type_;
 
   /**

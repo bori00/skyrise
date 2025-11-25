@@ -118,9 +118,16 @@ std::shared_ptr<const Table> ImportOperator::OnExecute(
 
   Assert(!reader_error.IsError(), reader_error.GetMessage());
 
+  bytes_consumed = input_handler->GetBytesReadCount();
+
   return std::make_shared<Table>(*loaded_table_schema, std::move(chunks));
 }
 
 const std::string& ImportOperator::Name() const { return kName; }
+
+size_t ImportOperator::BytesConsumed() const {
+  return bytes_consumed;
+}
+
 
 }  // namespace skyrise
