@@ -167,16 +167,16 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   using namespace expression_functional;
 
   // Read lineitems
-  // Column 4: quantity. Column 5: extendedprice, Column 6: discount. Column 8: returnflag. Column 9: linestatus. Column
-  // 10: shipdate.
+  // Column 4: quantity. Column 5: extendedprice, Column 6: discount. Column 7: tax. Column 8: returnflag. Column 9:
+  // linestatus. Column 10: shipdate.
   const std::string import_id = "import";
-  const auto import_operator =
-      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{4, 5, 6, 8, 9, 10});
+  const auto import_operator = std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{},
+                                                                     std::vector<ColumnId>{4, 5, 6, 8, 9, 10, 7});
   import_operator->SetIdentity(import_id);
 
   // Filter based on l_shipdate
   // Column 0: quantity. Column 1: extendedprice, Column 2: discount. Column 3: returnflag. Column 4: linestatus. Column
-  // 5: shipdate.
+  // 5: shipdate. Column 6: tax.
   const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
       PredicateCondition::kLessThanEquals, PqpColumn_(5, DataType::kString, false, "l_shipdate"), Value_("1998-09-02"));
   const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
@@ -194,7 +194,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       // New Column 4: l_returnflag (Grouping Column)
       PqpColumn_(3, DataType::kString, false, "l_returnflag"),
       // New Column 5: l_linestatus (Grouping Column)
-      PqpColumn_(4, DataType::kString, false, "l_linestatus")};
+      PqpColumn_(4, DataType::kString, false, "l_linestatus"),
+      Mul_(PqpColumn_(1, DataType::kFloat, false, "l_extendedprice"),
+           Mul_(Sub_(Value_(1), PqpColumn_(2, DataType::kFloat, false, "l_discount")),
+                Add_(Value_(1), PqpColumn_(6, DataType::kFloat, false, "l_tax"))))};
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
@@ -203,14 +206,14 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // TODO sum(l_extendedprice * (1 - l_discount)) as sum_disc_price,
   // TODO sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)) as sum_charge,
   // Column 0: l_extendedprice * (1 - l_discount). Column 1: quantity. Column 2: extendedprice, Column 3: discount.
-  // Column 4: returnflag. Column 5: linestatus.
+  // Column 4: returnflag. Column 5: linestatus. Column 6: charge
   std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
       Sum_(PqpColumn_(0, DataType::kFloat, false, "disc_price")),
       Sum_(PqpColumn_(1, DataType::kFloat, false, "l_quantity")),
       Sum_(PqpColumn_(2, DataType::kFloat, false, "l_extendedprice")),
       Sum_(PqpColumn_(3, DataType::kFloat, false, "l_discount")),
       Count_(PqpColumn_(kInvalidColumnId, DataType::kFloat, false, "*")),  // invalid column for count(*)
-  };
+      Sum_(PqpColumn_(6, DataType::kFloat, false, "charge"))};
   const std::vector<ColumnId> groupby_column_ids{4, 5};  // l_returnflag, l_linestatus
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
   aggregate_operator->SetLeftInput(projection_operator);
@@ -233,10 +236,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   using namespace expression_functional;
   // Read partial aggregates
   // Column 0: returnflag. Column 1: linestatus, Column 2: sum(disc price). Column 3: sum(quantity). Column 4:
-  // sum(extendedprice). Column 5: sum(discount). Column 6: count(*)
+  // sum(extendedprice). Column 5: sum(discount). Column 6: count(*). Column 7: sum(charge)
   const std::string import_id = "import";
-  const auto import_operator =
-      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2, 3, 4, 5, 6});
+  const auto import_operator = std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{},
+                                                                     std::vector<ColumnId>{0, 1, 2, 3, 4, 5, 6, 7});
   import_operator->SetIdentity(import_id);
 
   // Aggregate the partial aggregates
@@ -246,6 +249,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       Sum_(PqpColumn_(3, DataType::kDouble, false, "sum_qty")),
       Sum_(PqpColumn_(4, DataType::kDouble, false, "l_extendedprice")),
       Sum_(PqpColumn_(6, DataType::kLong, false, "count")),
+      Sum_(PqpColumn_(7, DataType::kDouble, false, "charge")),
   };
   const std::vector<ColumnId> groupby_column_ids{0, 1};  // l_returnflag, l_linestatus
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
@@ -257,9 +261,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   sort_operator->SetLeftInput(aggregate_operator);
 
   // Rename columns
-  const std::vector<ColumnId>& column_ids_alias = {0, 1, 2, 3, 4, 5};
-  const std::vector<std::string>& aliases = {"l_returnflag", "l_linestatus",   "sum_disc_price",
-                                             "sum_qty",      "sum_base_price", "count_order"};
+  const std::vector<ColumnId>& column_ids_alias = {0, 1, 2, 3, 4, 5, 6};
+  const std::vector<std::string>& aliases = {"l_returnflag",   "l_linestatus", "sum_disc_price", "sum_qty",
+                                             "sum_base_price", "count_order",  "sum_charge"};
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(column_ids_alias, aliases);
   alias_operator->SetLeftInput(sort_operator);
 
