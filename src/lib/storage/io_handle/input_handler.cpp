@@ -43,6 +43,8 @@ std::shared_ptr<std::queue<LazyReaderConstructor>> InputHandler::CreateBufferedF
   return format_readers;
 }
 
+size_t InputHandler::GetBytesReadCount() const { return bytes_read; }
+
 std::optional<std::vector<std::pair<size_t, size_t>>> InputHandler::PrecomputeByteRanges(
     const std::shared_ptr<ObjectReader>& object_reader, const ImportFormat import_format, const size_t object_size,
     const std::optional<const std::vector<ColumnId>>& columns, const std::optional<std::vector<int32_t>>& partitions) {

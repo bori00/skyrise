@@ -19,25 +19,48 @@ struct PipelineWorkerStatistics final {
   explicit PipelineWorkerStatistics() = default;
 
   size_t fragment_count;
+
   std::vector<size_t> fragment_runtimes;
   size_t average_runtime_ms;
   size_t max_fragment_runtime_ms;
+
+  std::vector<size_t> fragment_bytes_consumed;
+  size_t average_bytes_consumed;
+  size_t max_bytes_consumed;
+
+  std::vector<size_t> fragment_bytes_written;
+  size_t average_bytes_written;
+  size_t max_bytes_written;
 
   Aws::Utils::Json::JsonValue ToJson() const {
     Aws::Utils::Json::JsonValue pipeline_json;
 
     pipeline_json.WithInteger("fragment_count", fragment_count)
-        .WithInteger("avg_runtime", average_runtime_ms)
-        .WithInteger("max_fragment_runtime", max_fragment_runtime_ms);
+        .WithInt64("avg_runtime", average_runtime_ms)
+        .WithInt64("max_fragment_runtime", max_fragment_runtime_ms)
+        .WithInt64("avg_bytes_consumed", average_bytes_consumed)
+        .WithInt64("max_bytes_consumed", max_bytes_consumed)
+        .WithInt64("avg_bytes_written", average_bytes_written)
+        .WithInt64("max_bytes_written", max_bytes_written);
 
     Aws::Utils::Array<Aws::Utils::Json::JsonValue> json_fragment_runtimes(fragment_count);
+    Aws::Utils::Array<Aws::Utils::Json::JsonValue> json_fragment_bytes_consumed(fragment_count);
+    Aws::Utils::Array<Aws::Utils::Json::JsonValue> json_fragment_bytes_written(fragment_count);
 
     for (size_t i = 0; i < fragment_count; ++i) {
       Aws::Utils::Json::JsonValue runtime_json;
       json_fragment_runtimes[i] = runtime_json.AsInteger(fragment_runtimes[i]);
+
+      Aws::Utils::Json::JsonValue bytes_consumed_json;
+      json_fragment_bytes_consumed[i] = bytes_consumed_json.AsInteger(fragment_bytes_consumed[i]);
+
+      Aws::Utils::Json::JsonValue bytes_written_json;
+      json_fragment_bytes_written[i] = bytes_written_json.AsInteger(fragment_bytes_written[i]);
     }
 
     pipeline_json.WithArray("fragment_runtimes", json_fragment_runtimes);
+    pipeline_json.WithArray("fragment_bytes_consumed", json_fragment_bytes_consumed);
+    pipeline_json.WithArray("fragment_bytes_written", json_fragment_bytes_written);
 
     return pipeline_json;
   }
@@ -48,13 +71,27 @@ PipelineWorkerStatistics GetPipelineWorkerStatistics(const std::shared_ptr<skyri
   statistics.fragment_count = pipeline_task->fragment_execution_results.size();
   statistics.max_fragment_runtime_ms = 0;
   statistics.average_runtime_ms = 0;
+  statistics.max_bytes_consumed = 0;
+  statistics.average_bytes_consumed = 0;
+  statistics.max_bytes_written = 0;
+  statistics.average_bytes_written = 0;
   for (const auto& fragment_execution_result : pipeline_task->fragment_execution_results) {
     statistics.fragment_runtimes.push_back(fragment_execution_result->runtime_ms);
+    statistics.fragment_bytes_consumed.push_back(fragment_execution_result->import_data_size_bytes);
+    statistics.fragment_bytes_written.push_back(fragment_execution_result->export_data_size_bytes);
     statistics.average_runtime_ms += fragment_execution_result->runtime_ms;
     statistics.max_fragment_runtime_ms =
         std::max(statistics.max_fragment_runtime_ms, fragment_execution_result->runtime_ms);
+    statistics.average_bytes_consumed += fragment_execution_result->import_data_size_bytes;
+    statistics.max_bytes_consumed =
+        std::max(statistics.max_bytes_consumed, fragment_execution_result->import_data_size_bytes);
+    statistics.average_bytes_written += fragment_execution_result->export_data_size_bytes;
+    statistics.max_bytes_written =
+        std::max(statistics.max_bytes_written, fragment_execution_result->export_data_size_bytes);
   }
   statistics.average_runtime_ms /= statistics.fragment_count;
+  statistics.average_bytes_consumed /= statistics.fragment_count;
+  statistics.average_bytes_written /= statistics.fragment_count;
   return statistics;
 }
 

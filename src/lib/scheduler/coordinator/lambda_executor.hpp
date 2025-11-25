@@ -14,6 +14,7 @@ struct PqpPipelineFragmentExecutionResult {
   const size_t runtime_ms;
   const size_t function_instance_size_mb;
   const size_t export_data_size_bytes;
+  const size_t import_data_size_bytes;
   const Aws::Utils::Json::JsonValue metering;
 };
 

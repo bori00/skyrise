@@ -125,7 +125,7 @@ void LambdaExecutor::CollectSqsMessages(
       const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
       const auto response_view = response.View();
       // We set the result to successful, as we received a message.
-      Assert (pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
+      Assert(pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
       AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Processed - SQS response handler of pipeline "
                                                       << pipeline_id << " received response of "
                                                       << response_view.GetString("pipeline_id") << " from worker "
@@ -139,12 +139,12 @@ void LambdaExecutor::CollectSqsMessages(
               .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
               .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
               .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
+              .import_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseImportDataSizeBytesAttribute),
               .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
 
-      const auto delete_message_outcome =
-          sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
-                                        .WithQueueUrl(sqs_response_queue_url)
-                                        .WithReceiptHandle(message.GetReceiptHandle()));
+      const auto delete_message_outcome = sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
+                                                                        .WithQueueUrl(sqs_response_queue_url)
+                                                                        .WithReceiptHandle(message.GetReceiptHandle()));
       Assert(delete_message_outcome.IsSuccess(), delete_message_outcome.GetError().GetMessage());
       on_finished_callback(fragment_result);
     }

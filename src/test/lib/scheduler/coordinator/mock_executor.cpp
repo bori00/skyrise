@@ -29,6 +29,7 @@ void MockExecutor::Execute(
                                              .runtime_ms = 1,
                                              .function_instance_size_mb = 1,
                                              .export_data_size_bytes = 1,
+                                             .import_data_size_bytes = 1,
                                              .metering = response});
       on_finished_callback(fragment_result);
     }
