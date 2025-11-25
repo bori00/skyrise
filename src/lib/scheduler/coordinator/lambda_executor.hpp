@@ -38,7 +38,7 @@ class LambdaExecutor : public AbstractPqpPipelineFragmentExecutor {
       const std::function<void(std::shared_ptr<PqpPipelineFragmentExecutionResult>)>& on_finished_callback) override;
 
  private:
-  void SetupSqsResponseQueue();
+  std::string SetupSqsResponseQueue() const;
   static void CollectSqsMessages(
       const std::shared_ptr<const Aws::SQS::SQSClient> sqs_client, const std::string sqs_response_queue_url,
       const std::string pipeline_id, const size_t invocation_count,
@@ -46,7 +46,7 @@ class LambdaExecutor : public AbstractPqpPipelineFragmentExecutor {
 
   const std::shared_ptr<const BaseClient> client_;
   const std::string worker_function_name_;
-  std::string sqs_response_queue_url_;
+  std::vector<std::string> sqs_response_queue_urls_;
   std::vector<std::thread> collector_threads_;
 };
 
