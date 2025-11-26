@@ -111,7 +111,11 @@ void LambdaExecutor::CollectSqsMessages(
     const std::shared_ptr<const Aws::SQS::SQSClient> sqs_client, const std::string sqs_response_queue_url,
     const std::string pipeline_id, const size_t invocation_count,
     const std::function<void(std::shared_ptr<PqpPipelineFragmentExecutionResult>)> on_finished_callback) {
-  size_t sqs_message_count = 0;
+  std::atomic<size_t> processed_count;
+
+  // For the idempotent message processing. See "Amazon SQS at-least-once delivery".
+  std::mutex dedup_mutex;
+  std::unordered_set<Aws::String> processed_ids;
 
   const auto receive_message_request = Aws::SQS::Model::ReceiveMessageRequest()
                                            .WithQueueUrl(sqs_response_queue_url)
@@ -122,38 +126,62 @@ void LambdaExecutor::CollectSqsMessages(
 
   auto handle_message = [&](const Aws::Vector<Aws::SQS::Model::Message>& messages) {
     for (const auto& message : messages) {
+      Aws::String msg_id = message.GetMessageId();
+      bool is_duplicate = false;
+
+      {
+        // Lock specifically for the check/insert operation
+        std::lock_guard<std::mutex> lock(dedup_mutex);
+        if (processed_ids.find(msg_id) != processed_ids.end()) {
+          is_duplicate = true;
+        } else {
+          processed_ids.insert(msg_id);
+        }
+      }
+
       const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
       const auto response_view = response.View();
-      // We set the result to successful, as we received a message.
-      Assert(pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
-      AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Processed - SQS response handler of pipeline "
-                                                      << pipeline_id << " received response of "
-                                                      << response_view.GetString("pipeline_id") << " from worker "
-                                                      << response_view.GetString(kWorkerResponseIdAttribute));
-      const auto fragment_result =
-          std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
-              .pipeline_id = pipeline_id,
-              .worker_id = response_view.GetString(kWorkerResponseIdAttribute),
-              .is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0,
-              .message = response_view.GetString(kResponseMessageAttribute),
-              .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
-              .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
-              .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
-              .import_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseImportDataSizeBytesAttribute),
-              .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
+
+      if (!is_duplicate) {
+        // We set the result to successful, as we received a message.
+        Assert(pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Processed - SQS response handler of pipeline "
+                                                        << pipeline_id << " received response of "
+                                                        << response_view.GetString("pipeline_id") << " from worker "
+                                                        << response_view.GetString(kWorkerResponseIdAttribute));
+        const auto fragment_result =
+            std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
+                .pipeline_id = pipeline_id,
+                .worker_id = response_view.GetString(kWorkerResponseIdAttribute),
+                .is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0,
+                .message = response_view.GetString(kResponseMessageAttribute),
+                .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
+                .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
+                .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
+                .import_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseImportDataSizeBytesAttribute),
+                .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
+
+        processed_count.store(processed_count.load() + 1);
+        on_finished_callback(fragment_result);
+      } else {
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Duplicate message on SQS queue from worker "
+                                                        << response_view.GetString(kWorkerResponseIdAttribute)
+                                                        << ". Message dropped.");
+      }
 
       const auto delete_message_outcome = sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
                                                                         .WithQueueUrl(sqs_response_queue_url)
                                                                         .WithReceiptHandle(message.GetReceiptHandle()));
-      Assert(delete_message_outcome.IsSuccess(), delete_message_outcome.GetError().GetMessage());
-      on_finished_callback(fragment_result);
+      if (!delete_message_outcome.IsSuccess()) {
+        AWS_LOGSTREAM_ERROR(kCoordinatorTag.c_str(),
+                            "Failed to remove SQS message " << delete_message_outcome.GetError().GetMessage());
+      }
     }
   };
 
-  while (sqs_message_count < invocation_count) {
+  while (processed_count.load() < invocation_count) {
     const auto receive_message_outcome = sqs_client->ReceiveMessage(receive_message_request);
     const auto messages = receive_message_outcome.GetResult().GetMessages();
-    sqs_message_count += messages.size();
     threads.emplace_back(handle_message, messages);
   }
 
