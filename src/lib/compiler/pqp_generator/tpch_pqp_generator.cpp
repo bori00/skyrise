@@ -466,7 +466,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 }
 
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const {
-  size_t partition_count = GetStage1PartitionsPerWorkerCount();
+  size_t partition_count = GetShufflePartitionsCount();
 
   const auto pipeline1 = GenerateQ12Pipeline1(partition_count, ListTableObjects("lineitem", FileFormat::kParquet));
   const auto pipeline2 = GenerateQ12Pipeline2(partition_count, ListTableObjects("orders", FileFormat::kParquet));
