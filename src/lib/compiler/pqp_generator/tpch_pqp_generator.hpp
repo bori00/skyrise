@@ -36,11 +36,11 @@ class TpchPqpGenerator : public AbstractCompiler {
   size_t GetShufflePartitionsCount() const;
 
   // Query 1.
-  static std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ1Pipeline1(
-      const std::vector<ObjectReference>& input_objects);
-  static std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ1Pipeline2(
-      const std::vector<ObjectReference>& input_objects);
-  static std::vector<std::shared_ptr<PqpPipeline>> GenerateQ1();
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ1Pipeline1(
+      const std::vector<ObjectReference>& input_objects) const;
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ1Pipeline2(
+      const std::vector<ObjectReference>& input_objects) const;
+  std::vector<std::shared_ptr<PqpPipeline>> GenerateQ1() const;
 
   // Query 6.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ6Pipeline1(
