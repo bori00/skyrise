@@ -605,13 +605,14 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       SortColumnDefinition(3, SortMode::kDescending) /* revenue */, SortColumnDefinition(1) /* orderdate */});
   sort_operator->SetLeftInput(import_operator_left);
 
-  const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(10));
-  limit_operator->SetLeftInput(sort_operator);
+  // TODO: implement the limit operator
+  // const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int64_t{10}));
+  // limit_operator->SetLeftInput(sort_operator);
 
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(
       std::vector<ColumnId>{0, 1, 2, 3},
       std::vector<std::string>{"l_orderkey", "o_orderdate", "o_shippriority", "revenue"});
-  alias_operator->SetLeftInput(limit_operator);
+  alias_operator->SetLeftInput(sort_operator);
 
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
