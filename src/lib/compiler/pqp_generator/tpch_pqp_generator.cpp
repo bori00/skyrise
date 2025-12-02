@@ -9,6 +9,7 @@
 #include "compiler/physical_query_plan/operator_proxy/filter_operator_proxy.hpp"
 #include "compiler/physical_query_plan/operator_proxy/import_operator_proxy.hpp"
 #include "compiler/physical_query_plan/operator_proxy/join_operator_proxy.hpp"
+#include "compiler/physical_query_plan/operator_proxy/limit_operator_proxy.hpp"
 #include "compiler/physical_query_plan/operator_proxy/partition_operator_proxy.hpp"
 #include "compiler/physical_query_plan/operator_proxy/projection_operator_proxy.hpp"
 #include "compiler/physical_query_plan/operator_proxy/sort_operator_proxy.hpp"
@@ -33,6 +34,9 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GeneratePqp() const 
   switch (query_id_) {
     case QueryId::kTpchQ1:
       result = GenerateQ1();
+      break;
+    case QueryId::kTpchQ3:
+      result = GenerateQ3();
       break;
     case QueryId::kTpchQ6:
       result = GenerateQ6();
@@ -122,6 +126,8 @@ size_t TpchPqpGenerator::GetStage1PartitionsPerWorkerCount() const {
   switch (query_id_) {
     case QueryId::kTpchQ1:
       return 1;
+    case QueryId::kTpchQ3:
+      return 1;
     case QueryId::kTpchQ6:
       return 5;
     case QueryId::kTpchQ12:
@@ -137,6 +143,8 @@ size_t TpchPqpGenerator::GetShufflePartitionsCount() const {
   }
   switch (query_id_) {
     case QueryId::kTpchQ1:
+      return 1;
+    case QueryId::kTpchQ3:
       return 1;
     case QueryId::kTpchQ6:
       return 1;
@@ -243,7 +251,6 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   import_operator->SetIdentity(import_id);
 
   // Aggregate the partial aggregates
-  // TODO: add avg aggregates
   std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
       Sum_(PqpColumn_(2, DataType::kDouble, false, "sum_disc_price")),
       Sum_(PqpColumn_(3, DataType::kDouble, false, "sum_qty")),
@@ -315,12 +322,271 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 //   l_returnflag,
 //   l_linestatus;
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ1() const {
+  // TODO: check if projection pushdown applicable, to reduce the export size.
   const auto pipeline1 = GenerateQ1Pipeline1(ListTableObjects("lineitem", FileFormat::kParquet));
   const auto pipeline2 = GenerateQ1Pipeline2(pipeline1.first);
 
   pipeline1.second->SetAsPredecessorOf(pipeline2.second);
 
   return {pipeline1.second, pipeline2.second};
+}
+
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline1(
+    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+  using namespace expression_functional;
+  const std::string left_import_id = "left_import";
+  // Column 0: orderkey. Column 1: custkey. Column 5: orderdate. Column 7: shippriority
+  const auto import_operator =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 4, 7});
+  import_operator->SetIdentity(left_import_id);
+
+  // Filter based on o_orderdate
+  const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
+      PredicateCondition::kLessThan, PqpColumn_(2, DataType::kString, false, "o_orderdate"), Value_("1995-03-15"));
+  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
+  filter_operator1->SetLeftInput(import_operator);
+
+  // Partition by custkey.
+  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
+  partition_operator->SetLeftInput(filter_operator1);
+
+  std::shared_ptr<ExportOperatorProxy> export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  export_operator->SetLeftInput(partition_operator);
+
+  const std::string pipeline_id = "pipeline-1";
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
+  const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
+                                          kIntermediateResultsExportFormat, input_objects, output_objects);
+  return {output_objects, pipeline1};
+}
+
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline2(
+    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+  using namespace expression_functional;
+  const std::string left_import_id = "left_import";
+  // Column 0: custkey. Column 6: mktsegment.
+  const auto import_operator =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 6});
+  import_operator->SetIdentity(left_import_id);
+
+  // Filter based on mktsegment
+  const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
+      PredicateCondition::kEquals, PqpColumn_(1, DataType::kString, false, "c_mktsegment"), Value_("BUILDING"));
+  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
+  filter_operator1->SetLeftInput(import_operator);
+
+  // Keep custkey only.
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{
+      PqpColumn_(0, DataType::kString, false, "c_custkey")};
+  const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  projection_operator->SetLeftInput(filter_operator1);
+
+  // Partition by custkey.
+  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  partition_operator->SetLeftInput(filter_operator1);
+
+  std::shared_ptr<ExportOperatorProxy> export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  export_operator->SetLeftInput(partition_operator);
+
+  const std::string pipeline_id = "pipeline-2";
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
+  const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
+                                          kIntermediateResultsExportFormat, input_objects, output_objects);
+  return {output_objects, pipeline2};
+}
+
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline3(
+    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+  using namespace expression_functional;
+  const std::string left_import_id = "left_import";
+  // Column 0: orderkey. Column 5: extendedprice. Column 6: discount. Column 10: shipdate.
+  const auto import_operator =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 5, 6, 10});
+  import_operator->SetIdentity(left_import_id);
+
+  // Filter based on l_shipdate
+  const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
+      PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kString, false, "l_shipdate"), Value_("1995-03-15"));
+  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
+  filter_operator1->SetLeftInput(import_operator);
+
+  // Partition by orderkey.
+  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  partition_operator->SetLeftInput(filter_operator1);
+
+  // TODO: remove shipdate.
+
+  std::shared_ptr<ExportOperatorProxy> export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  export_operator->SetLeftInput(partition_operator);
+
+  const std::string pipeline_id = "pipeline-3";
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
+  const auto pipeline3 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
+                                          kIntermediateResultsExportFormat, input_objects, output_objects);
+  return {output_objects, pipeline3};
+}
+
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline4(
+    const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
+    const std::vector<ObjectReference>& input_objects_right) const {
+  // NOLINTNEXTLINE(google-build-using-namespace)
+  using namespace expression_functional;
+
+  // The in-memory hashtable is built from the left-input, so we set the left input to be the smaller one, namely the
+  // filtered customers. Table: customers.
+  const std::string left_import_id = "left_import";
+  auto import_operator_left =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0});
+  import_operator_left->SetIdentity(left_import_id);
+
+  // Table: orders. Column 0: orderkey. Column 1: custkey. Column 2: orderdate. Column 3: shippriority
+  const std::string right_import_id = "right_import";
+  auto import_operator_right =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2, 3});
+  import_operator_right->SetIdentity(right_import_id);
+
+  std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
+  const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
+      .column_id_left = 0, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals});
+  const auto join_operator =
+      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  join_operator->SetLeftInput(import_operator_left);
+  join_operator->SetRightInput(import_operator_right);
+
+  // Keep only the relevant columns.
+  // Input: Column 0: c_custkey --> dropped. Column 2 : o_custkey --> dropped.
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{
+      PqpColumn_(1, DataType::kInt, false, "o_orderkey"), PqpColumn_(3, DataType::kString, false, "o_orderdate"),
+      PqpColumn_(4, DataType::kInt, false, "o_shippriority")};
+  const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  projection_operator->SetLeftInput(join_operator);
+
+  // Partition by orderkey.
+  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  partition_operator->SetLeftInput(projection_operator);
+
+  auto export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
+  export_operator->SetLeftInput(projection_operator);
+
+  const std::string pipeline_id = "pipeline-4";
+  const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kFinalResultsExportFormat);
+
+  auto pipeline4 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+
+  std::string left_input_id;
+  left_input_id.append("pipeline-4").append("-").append(left_import_id);
+  std::string right_input_id;
+  right_input_id.append("pipeline-4").append("-").append(right_import_id);
+  for (size_t i = 0; i < partition_count; ++i) {
+    std::unordered_map<std::string, std::vector<ObjectReference>> map;
+    map[left_input_id] = std::vector<ObjectReference>{};
+    for (const auto& left_input : input_objects_left) {
+      map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
+                                      std::vector<int32_t>{static_cast<int32_t>(i)});
+    }
+    map[right_input_id] = std::vector<ObjectReference>{};
+    for (const auto& right_input : input_objects_right) {
+      map[right_input_id].emplace_back(shuffle_storage_.bucket_name, right_input.identifier, "",
+                                       std::vector<int32_t>{static_cast<int32_t>(i)});
+    }
+    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kCsv);
+    pipeline4->AddFragmentDefinition(fragment);
+  }
+  return {output_objects, pipeline4};
+}
+
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline5(
+    const size_t /*partition_count*/, const std::vector<ObjectReference>& /*input_objects_left*/,
+    const std::vector<ObjectReference>& /*input_objects_right*/) const {
+  // NOLINTNEXTLINE(google-build-using-namespace)
+  using namespace expression_functional;
+
+  // The in-memory hashtable is built from the left-input, so we set the left input to be the smaller one, namely the
+  // filtered orders from pipeline 4. Column 0: orderkey. Column 1: orderdate. Column 2: shippriority.
+  const std::string left_import_id = "left_import";
+  auto import_operator_left =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1});
+  import_operator_left->SetIdentity(left_import_id);
+
+  // Table: lineitems from pipeline 3. Column 0: orderkey. Column 1: extendedprice. Column 2: discount. Column 3:
+  // shipdate.
+  const std::string right_import_id = "right_import";
+  auto import_operator_right =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2, 3});
+  import_operator_right->SetIdentity(right_import_id);
+
+  // Join orders with lineitems.
+  std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
+  const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
+      .column_id_left = 0, .column_id_right = 0, .predicate_condition = PredicateCondition::kEquals});
+  const auto join_operator =
+      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  join_operator->SetLeftInput(import_operator_left);
+  join_operator->SetRightInput(import_operator_right);
+
+  // Calculate l_extendedprice * (1 - l_discount)
+  // Input: Column 0: o_orderkey. Column 1: o_orderdate. Column 2: o_shippriority. Column 3: l_orderkey. Column 4:
+  // l_extendedprice. Column 5: l_discount. Column 6: l_shipdate.
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{
+      PqpColumn_(0, DataType::kInt, false, "o_orderkey"), PqpColumn_(1, DataType::kString, false, "o_orderdate"),
+      PqpColumn_(2, DataType::kInt, false, "o_shoppriority"),
+      Mul_(PqpColumn_(3, DataType::kFloat, false, "l_extendedprice"),
+           Sub_(Value_(1), PqpColumn_(4, DataType::kFloat, false, "l_discount")))};
+  const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  projection_operator->SetLeftInput(join_operator);
+
+  // Group by orderkey, orderdate and shippriority.
+  std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
+      Sum_(PqpColumn_(3, DataType::kFloat, false, "revenue"))};
+  const std::vector<ColumnId> groupby_column_ids{0, 1, 2};
+  const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
+  aggregate_operator->SetLeftInput(projection_operator);
+
+  // Order by revenue desc, o_orderdate.
+  const auto sort_operator = std::make_shared<SortOperatorProxy>(std::vector<SortColumnDefinition>{
+      SortColumnDefinition(3, SortMode::kDescending) /* revenue */, SortColumnDefinition(1) /* orderdate */});
+  sort_operator->SetLeftInput(aggregate_operator);
+
+  const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(10));
+  limit_operator->SetLeftInput(sort_operator);
+
+  return std::make_pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>({}, nullptr);
+}
+
+std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3() const {
+  size_t partition_count = GetShufflePartitionsCount();
+
+  const auto pipeline1 = GenerateQ3Pipeline1(partition_count, ListTableObjects("orders", FileFormat::kParquet));
+  const auto pipeline2 = GenerateQ3Pipeline2(partition_count, ListTableObjects("customer", FileFormat::kParquet));
+  // const auto pipeline3 = GenerateQ3Pipeline2(partition_count, ListTableObjects("lineitem", FileFormat::kParquet));
+
+  // left input is expected to be smaller, for the internal hash table.
+  const auto pipeline4 = GenerateQ3Pipeline4(partition_count, pipeline2.first, pipeline1.first);
+
+  // TODO: left vs right.
+  // const auto pipeline5 = GenerateQ3Pipeline4(partition_count, pipeline4.first, pipeline3.first);
+
+  pipeline1.second->SetAsPredecessorOf(pipeline4.second);
+  pipeline2.second->SetAsPredecessorOf(pipeline4.second);
+
+  return {pipeline1.second, pipeline2.second, pipeline4.second};
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ6Pipeline1(

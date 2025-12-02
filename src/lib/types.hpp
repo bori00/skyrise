@@ -274,6 +274,7 @@ enum class QueryId : std::uint8_t {
   kProcessMiningQ3,
   kProcessMiningQ9,
   kTpchQ1,
+  kTpchQ3,
   kTpchQ6,
   kTpchQ12,
   kTpcxbbQ3,
