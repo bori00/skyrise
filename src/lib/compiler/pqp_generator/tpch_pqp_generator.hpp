@@ -55,6 +55,8 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline5(
       const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
       const std::vector<ObjectReference>& input_objects_right) const;
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline6(
+      const std::vector<ObjectReference>& input_objects) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ3() const;
 
   // Query 6.

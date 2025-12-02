@@ -482,11 +482,11 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   partition_operator->SetLeftInput(projection_operator);
 
   auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
   export_operator->SetLeftInput(projection_operator);
 
   const std::string pipeline_id = "pipeline-4";
-  const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kFinalResultsExportFormat);
+  const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline4 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
 
@@ -506,15 +506,15 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       map[right_input_id].emplace_back(shuffle_storage_.bucket_name, right_input.identifier, "",
                                        std::vector<int32_t>{static_cast<int32_t>(i)});
     }
-    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kCsv);
+    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
     pipeline4->AddFragmentDefinition(fragment);
   }
   return {output_objects, pipeline4};
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline5(
-    const size_t /*partition_count*/, const std::vector<ObjectReference>& /*input_objects_left*/,
-    const std::vector<ObjectReference>& /*input_objects_right*/) const {
+    const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
+    const std::vector<ObjectReference>& input_objects_right) const {
   // NOLINTNEXTLINE(google-build-using-namespace)
   using namespace expression_functional;
 
@@ -522,7 +522,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // filtered orders from pipeline 4. Column 0: orderkey. Column 1: orderdate. Column 2: shippriority.
   const std::string left_import_id = "left_import";
   auto import_operator_left =
-      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1});
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2});
   import_operator_left->SetIdentity(left_import_id);
 
   // Table: lineitems from pipeline 3. Column 0: orderkey. Column 1: extendedprice. Column 2: discount. Column 3:
@@ -547,8 +547,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const std::vector<std::shared_ptr<AbstractExpression>> expressions{
       PqpColumn_(0, DataType::kInt, false, "o_orderkey"), PqpColumn_(1, DataType::kString, false, "o_orderdate"),
       PqpColumn_(2, DataType::kInt, false, "o_shoppriority"),
-      Mul_(PqpColumn_(3, DataType::kFloat, false, "l_extendedprice"),
-           Sub_(Value_(1), PqpColumn_(4, DataType::kFloat, false, "l_discount")))};
+      Mul_(PqpColumn_(4, DataType::kFloat, false, "l_extendedprice"),
+           Sub_(Value_(1), PqpColumn_(5, DataType::kFloat, false, "l_discount")))};
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
@@ -559,15 +559,69 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
   aggregate_operator->SetLeftInput(projection_operator);
 
+  auto export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  export_operator->SetLeftInput(aggregate_operator);
+
+  const std::string pipeline_id = "pipeline-5";
+  const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
+
+  auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+
+  std::string left_input_id;
+  left_input_id.append("pipeline-5").append("-").append(left_import_id);
+  std::string right_input_id;
+  right_input_id.append("pipeline-5").append("-").append(right_import_id);
+  for (size_t i = 0; i < partition_count; ++i) {
+    std::unordered_map<std::string, std::vector<ObjectReference>> map;
+    map[left_input_id] = std::vector<ObjectReference>{};
+    for (const auto& left_input : input_objects_left) {
+      map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
+                                      std::vector<int32_t>{static_cast<int32_t>(i)});
+    }
+    map[right_input_id] = std::vector<ObjectReference>{};
+    for (const auto& right_input : input_objects_right) {
+      map[right_input_id].emplace_back(shuffle_storage_.bucket_name, right_input.identifier, "",
+                                       std::vector<int32_t>{static_cast<int32_t>(i)});
+    }
+    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
+    pipeline5->AddFragmentDefinition(fragment);
+  }
+  return {output_objects, pipeline5};
+}
+
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3Pipeline6(
+    const std::vector<ObjectReference>& input_objects) const {
+  using namespace expression_functional;
+
+  // Column 0: orderkey, Column 1: orderdate. Column 2: shippriority. Column 3: revenue.
+  const std::string left_import_id = "left_import";
+  auto import_operator_left =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2, 3});
+  import_operator_left->SetIdentity(left_import_id);
+
   // Order by revenue desc, o_orderdate.
   const auto sort_operator = std::make_shared<SortOperatorProxy>(std::vector<SortColumnDefinition>{
       SortColumnDefinition(3, SortMode::kDescending) /* revenue */, SortColumnDefinition(1) /* orderdate */});
-  sort_operator->SetLeftInput(aggregate_operator);
+  sort_operator->SetLeftInput(import_operator_left);
 
   const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(10));
   limit_operator->SetLeftInput(sort_operator);
 
-  return std::make_pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>({}, nullptr);
+  const auto alias_operator = std::make_shared<AliasOperatorProxy>(
+      std::vector<ColumnId>{0, 1, 2, 3},
+      std::vector<std::string>{"l_orderkey", "o_orderdate", "o_shippriority", "revenue"});
+  alias_operator->SetLeftInput(limit_operator);
+
+  auto export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
+  export_operator->SetLeftInput(alias_operator);
+
+  const std::string pipeline_id = "pipeline-6";
+  auto output_objects = GenerateOutputObjectIds(1, pipeline_id, kFinalResultsExportFormat);
+  const auto pipeline6 = GeneratePipeline(pipeline_id, left_import_id, export_operator, kFinalResultsExportFormat,
+                                          input_objects, output_objects);
+  return {output_objects, pipeline6};
 }
 
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3() const {
@@ -575,18 +629,21 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3() const {
 
   const auto pipeline1 = GenerateQ3Pipeline1(partition_count, ListTableObjects("orders", FileFormat::kParquet));
   const auto pipeline2 = GenerateQ3Pipeline2(partition_count, ListTableObjects("customer", FileFormat::kParquet));
-  // const auto pipeline3 = GenerateQ3Pipeline2(partition_count, ListTableObjects("lineitem", FileFormat::kParquet));
+  const auto pipeline3 = GenerateQ3Pipeline3(partition_count, ListTableObjects("lineitem", FileFormat::kParquet));
 
   // left input is expected to be smaller, for the internal hash table.
   const auto pipeline4 = GenerateQ3Pipeline4(partition_count, pipeline2.first, pipeline1.first);
+  const auto pipeline5 = GenerateQ3Pipeline5(partition_count, pipeline4.first, pipeline3.first);
 
-  // TODO: left vs right.
-  // const auto pipeline5 = GenerateQ3Pipeline4(partition_count, pipeline4.first, pipeline3.first);
+  const auto pipeline6 = GenerateQ3Pipeline6(pipeline5.first);
 
   pipeline1.second->SetAsPredecessorOf(pipeline4.second);
   pipeline2.second->SetAsPredecessorOf(pipeline4.second);
+  pipeline4.second->SetAsPredecessorOf(pipeline5.second);
+  pipeline3.second->SetAsPredecessorOf(pipeline5.second);
+  pipeline5.second->SetAsPredecessorOf(pipeline6.second);
 
-  return {pipeline1.second, pipeline2.second, pipeline4.second};
+  return {pipeline1.second, pipeline2.second, pipeline3.second, pipeline4.second, pipeline5.second, pipeline6.second};
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ6Pipeline1(
