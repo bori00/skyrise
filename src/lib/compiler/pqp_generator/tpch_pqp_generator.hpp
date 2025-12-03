@@ -60,10 +60,11 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ3() const;
 
   // Query 5.
-  // Region scan + Nation Scan + Join.
+  // Region scan + Nation Scan + Join + Supplier Scan + Join.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline1(
       const std::vector<ObjectReference>& region_input_objects,
-      const std::vector<ObjectReference>& nation_input_objects) const;
+      const std::vector<ObjectReference>& nation_input_objects,
+      const std::vector<ObjectReference>& supplier_input_objects) const;
   // Supplier scan. Join with nations.
   // std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline2(
   //   const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
