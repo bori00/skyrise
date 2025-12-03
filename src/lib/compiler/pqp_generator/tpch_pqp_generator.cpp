@@ -38,6 +38,9 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GeneratePqp() const 
     case QueryId::kTpchQ3:
       result = GenerateQ3();
       break;
+    case QueryId::kTpchQ5:
+      result = GenerateQ5();
+      break;
     case QueryId::kTpchQ6:
       result = GenerateQ6();
       break;
@@ -128,6 +131,8 @@ size_t TpchPqpGenerator::GetStage1PartitionsPerWorkerCount() const {
       return 1;
     case QueryId::kTpchQ3:
       return 1;
+    case QueryId::kTpchQ5:
+      return 1;
     case QueryId::kTpchQ6:
       return 5;
     case QueryId::kTpchQ12:
@@ -145,6 +150,8 @@ size_t TpchPqpGenerator::GetShufflePartitionsCount() const {
     case QueryId::kTpchQ1:
       return 1;
     case QueryId::kTpchQ3:
+      return 1;
+    case QueryId::kTpchQ5:
       return 1;
     case QueryId::kTpchQ6:
       return 1;
@@ -654,87 +661,95 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3() const {
   return {pipeline1.second, pipeline2.second, pipeline3.second, pipeline4.second, pipeline5.second, pipeline6.second};
 }
 
-// Region scan.
+// Region scan + Nation Scan + Join.
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline1(
-    const std::vector<ObjectReference>& input_objects) const {
+    const std::vector<ObjectReference>& region_input_objects,
+    const std::vector<ObjectReference>& nation_input_objects) const {
   using namespace expression_functional;
-  const std::string left_import_id = "left_import";
+  const std::string region_import_id = "left_import";
   // Column 0: regionkey. Column 1: name.
-  const auto import_operator =
+  const auto region_import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1});
-  import_operator->SetIdentity(left_import_id);
+  region_import_operator->SetIdentity(region_import_id);
 
-  // Filter based on name.
+  // Filter regions based on name.
   const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
       PredicateCondition::kEquals, PqpColumn_(1, DataType::kString, false, "r_name"), Value_("ASIA"));
-  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
-  filter_operator1->SetLeftInput(import_operator);
+  const auto region_filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
+  region_filter_operator1->SetLeftInput(region_import_operator);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(filter_operator1);
-
-  const std::string pipeline_id = "pipeline-1";
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
-  auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
-  const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
-                                          kIntermediateResultsExportFormat, input_objects, output_objects);
-  return {output_objects, pipeline1};
-}
-
-// Nation scan.
-std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline2(
-    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
-  using namespace expression_functional;
-  const std::string left_import_id = "left_import";
+  const std::string nation_import_id = "right_import";
   // Column 0: nationkey. Column 1: name. Column 2: regionkey.
-  const auto import_operator =
+  const auto nation_import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2});
-  import_operator->SetIdentity(left_import_id);
+  nation_import_operator->SetIdentity(nation_import_id);
 
-  // Filter based on name.
-  const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
-      PredicateCondition::kEquals, PqpColumn_(1, DataType::kString, false, "r_name"), Value_("ASIA"));
-  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
-  filter_operator1->SetLeftInput(import_operator);
+  // Join regions (left) with nations.
+  std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
+  const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
+      .column_id_left = 0, .column_id_right = 2, .predicate_condition = PredicateCondition::kEquals});
+  const auto join_operator =
+      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  join_operator->SetLeftInput(region_filter_operator1);
+  join_operator->SetRightInput(nation_import_operator);
 
+  // Scan suppliers.
+  // const std::string supplier_import_id = "supplier_import";
+  // // Column 0: suppkey. Column 3: nationkey.
+  // const auto supplier_import_operator =
+  //     std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 3});
+  // supplier_import_operator->SetIdentity(supplier_import_id);
+  //
+  // // Join nations (left) with suppliers.
+  // // Left: Column 0: regionkey. Column 1: r_name. Column 2: n_nationkey. Column 3: n_name. Column 4: n_regionkey.
+  // const auto predicate2 = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
+  //     .column_id_left = 2, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals});
+  // const auto join_operator2 =
+  //     std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate2, empty_secondary_predicates);
+  // join_operator2->SetLeftInput(join_operator);
+  // join_operator2->SetRightInput(supplier_import_operator);
+  //
+  // const std::vector<std::shared_ptr<AbstractExpression>> expressions{
+  //   PqpColumn_(3, DataType::kString, false, "n_name"),
+  //   PqpColumn_(5, DataType::kInt, false, "s_suppkey")};
+  // const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  // projection_operator->SetLeftInput(join_operator2);
+
+  // TODO: change input
+  // Column 0: regionkey. Column 1: r_name. Column 2: n_nationkey. Column 3: n_name/ Column 4: n_regionkey.
+  // Column 5: suppkey. Column 6: nationkey.
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(filter_operator1);
+  export_operator->SetLeftInput(join_operator);
 
   const std::string pipeline_id = "pipeline-1";
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = 1;
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
-  const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
-                                          kIntermediateResultsExportFormat, input_objects, output_objects);
+  std::unordered_map<std::string, std::vector<ObjectReference>> worker_input_mappings;
+  std::string region_input_id = "", nation_input_id = "";
+  region_input_id.append(pipeline_id).append("-").append(region_import_id);
+  nation_input_id.append(pipeline_id).append("-").append(nation_import_id);
+  for (size_t i = 0; i < region_input_objects.size(); ++i) {
+    worker_input_mappings[region_input_id].push_back(region_input_objects[i]);
+  }
+  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "reading " << region_input_objects.size() << " region tables.");
+  for (size_t i = 0; i < nation_input_objects.size(); ++i) {
+    worker_input_mappings[nation_input_id].push_back(nation_input_objects[i]);
+  }
+  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "reading " << nation_input_objects.size() << " nation tables.");
+  auto pipeline1 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  const PipelineFragmentDefinition fragment(worker_input_mappings, output_objects[0], kIntermediateResultsExportFormat);
+  pipeline1->AddFragmentDefinition(fragment);
+
   return {output_objects, pipeline1};
 }
 
 // Supplier scan.
-std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline3(
-    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
-  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
-}
-
-// Nation with region join.
-std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline7(
-    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects_left */,
-    const std::vector<ObjectReference>& /* input_objects_right */) const {
-  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
-}
-
-// Nation (region) with supplier join.
-std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline8(
-    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects_left */,
-    const std::vector<ObjectReference>& /*input_objects_right */) const {
-  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
-}
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5() const {
-  return {std::vector<std::shared_ptr<PqpPipeline>>()};
+  const auto pipeline1 = GenerateQ5Pipeline1(ListTableObjects("region", FileFormat::kParquet),
+                                             ListTableObjects("nation", FileFormat::kParquet));
+
+  return {pipeline1.second};
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ6Pipeline1(
