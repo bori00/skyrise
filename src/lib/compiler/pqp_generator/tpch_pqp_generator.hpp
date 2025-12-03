@@ -68,7 +68,15 @@ class TpchPqpGenerator : public AbstractCompiler {
   // Partition lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline2(
       const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  // Join suppliers with lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline3(
+      const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
+      const std::vector<ObjectReference>& lineitem_input_objects) const;
+  // Scan, filter and partition orders.
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline4(
+      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  // Join orders with lineitems.
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline5(
       const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
       const std::vector<ObjectReference>& lineitem_input_objects) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ5() const;
