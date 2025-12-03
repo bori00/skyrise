@@ -606,7 +606,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // TODO: remove. Only valid threshold for SF100.
   const auto filter_predicate = std::make_shared<BinaryPredicateExpression>(
-      PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kDouble, false, "revenue"), Value_(450000));
+      PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kDouble, false, "revenue"), Value_(360000.0));
   const auto filter_operator = std::make_shared<FilterOperatorProxy>(filter_predicate);
   filter_operator->SetLeftInput(sort_operator);
 
@@ -656,14 +656,62 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3() const {
 
 // Region scan.
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline1(
-    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
-  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+    const std::vector<ObjectReference>& input_objects) const {
+  using namespace expression_functional;
+  const std::string left_import_id = "left_import";
+  // Column 0: regionkey. Column 1: name.
+  const auto import_operator =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1});
+  import_operator->SetIdentity(left_import_id);
+
+  // Filter based on name.
+  const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
+      PredicateCondition::kEquals, PqpColumn_(1, DataType::kString, false, "r_name"), Value_("ASIA"));
+  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
+  filter_operator1->SetLeftInput(import_operator);
+
+  std::shared_ptr<ExportOperatorProxy> export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  export_operator->SetLeftInput(filter_operator1);
+
+  const std::string pipeline_id = "pipeline-1";
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
+  const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
+                                          kIntermediateResultsExportFormat, input_objects, output_objects);
+  return {output_objects, pipeline1};
 }
 
 // Nation scan.
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline2(
     const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
-  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+  using namespace expression_functional;
+  const std::string left_import_id = "left_import";
+  // Column 0: nationkey. Column 1: name. Column 2: regionkey.
+  const auto import_operator =
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2});
+  import_operator->SetIdentity(left_import_id);
+
+  // Filter based on name.
+  const auto predicate1 = std::make_shared<BinaryPredicateExpression>(
+      PredicateCondition::kEquals, PqpColumn_(1, DataType::kString, false, "r_name"), Value_("ASIA"));
+  const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
+  filter_operator1->SetLeftInput(import_operator);
+
+  std::shared_ptr<ExportOperatorProxy> export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  export_operator->SetLeftInput(filter_operator1);
+
+  const std::string pipeline_id = "pipeline-1";
+  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
+  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
+                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
+  const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
+                                          kIntermediateResultsExportFormat, input_objects, output_objects);
+  return {output_objects, pipeline1};
 }
 
 // Supplier scan.
