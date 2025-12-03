@@ -335,7 +335,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
   using namespace expression_functional;
   const std::string left_import_id = "left_import";
-  // Column 0: orderkey. Column 1: custkey. Column 5: orderdate. Column 7: shippriority
+  // Column 0: orderkey. Column 1: custkey. Column 4: orderdate. Column 7: shippriority
   const auto import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 4, 7});
   import_operator->SetIdentity(left_import_id);
@@ -381,15 +381,14 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   filter_operator1->SetLeftInput(import_operator);
 
   // Keep custkey only.
-  const std::vector<std::shared_ptr<AbstractExpression>> expressions{
-      PqpColumn_(0, DataType::kString, false, "c_custkey")};
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{PqpColumn_(0, DataType::kInt, false, "c_custkey")};
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
   // Partition by custkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
       std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(filter_operator1);
+  partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
@@ -483,7 +482,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(projection_operator);
+  export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-4";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
@@ -605,10 +604,16 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       SortColumnDefinition(3, SortMode::kDescending) /* revenue */, SortColumnDefinition(1) /* orderdate */});
   sort_operator->SetLeftInput(import_operator_left);
 
+  // TODO: remove. Only valid threshold for SF100.
+  // const auto filter_predicate = std::make_shared<BinaryPredicateExpression>(
+  //     PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kFloat, false, "revenue"), Value_(450000.0f));
+  // const auto filter_operator = std::make_shared<FilterOperatorProxy>(filter_predicate);
+  // filter_operator->SetLeftInput(sort_operator);
+
   // TODO: implement the limit operator
   // const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int64_t{10}));
   // limit_operator->SetLeftInput(sort_operator);
-
+  // TODO: base on sort op.
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(
       std::vector<ColumnId>{0, 1, 2, 3},
       std::vector<std::string>{"l_orderkey", "o_orderdate", "o_shippriority", "revenue"});
@@ -619,9 +624,11 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(alias_operator);
 
   const std::string pipeline_id = "pipeline-6";
+  // TODO: switch back. Fails on SF100, works for SF1. Probably too much data to sort or to export?
   auto output_objects = GenerateOutputObjectIds(1, pipeline_id, kFinalResultsExportFormat);
   const auto pipeline6 = GeneratePipeline(pipeline_id, left_import_id, export_operator, kFinalResultsExportFormat,
                                           input_objects, output_objects);
+
   return {output_objects, pipeline6};
 }
 
