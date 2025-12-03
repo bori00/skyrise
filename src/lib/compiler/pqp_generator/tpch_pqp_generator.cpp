@@ -605,10 +605,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   sort_operator->SetLeftInput(import_operator_left);
 
   // TODO: remove. Only valid threshold for SF100.
-  // const auto filter_predicate = std::make_shared<BinaryPredicateExpression>(
-  //     PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kFloat, false, "revenue"), Value_(450000.0f));
-  // const auto filter_operator = std::make_shared<FilterOperatorProxy>(filter_predicate);
-  // filter_operator->SetLeftInput(sort_operator);
+  const auto filter_predicate = std::make_shared<BinaryPredicateExpression>(
+      PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kDouble, false, "revenue"), Value_(450000));
+  const auto filter_operator = std::make_shared<FilterOperatorProxy>(filter_predicate);
+  filter_operator->SetLeftInput(sort_operator);
 
   // TODO: implement the limit operator
   // const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int64_t{10}));
@@ -617,7 +617,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(
       std::vector<ColumnId>{0, 1, 2, 3},
       std::vector<std::string>{"l_orderkey", "o_orderdate", "o_shippriority", "revenue"});
-  alias_operator->SetLeftInput(sort_operator);
+  alias_operator->SetLeftInput(filter_operator);
 
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
@@ -652,6 +652,41 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ3() const {
   pipeline5.second->SetAsPredecessorOf(pipeline6.second);
 
   return {pipeline1.second, pipeline2.second, pipeline3.second, pipeline4.second, pipeline5.second, pipeline6.second};
+}
+
+// Region scan.
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline1(
+    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
+  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+}
+
+// Nation scan.
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline2(
+    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
+  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+}
+
+// Supplier scan.
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline3(
+    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects */) const {
+  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+}
+
+// Nation with region join.
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline7(
+    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects_left */,
+    const std::vector<ObjectReference>& /* input_objects_right */) const {
+  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+}
+
+// Nation (region) with supplier join.
+std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5Pipeline8(
+    const size_t /* partition_count */, const std::vector<ObjectReference>& /* input_objects_left */,
+    const std::vector<ObjectReference>& /*input_objects_right */) const {
+  return {std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>>()};
+}
+std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ5() const {
+  return {std::vector<std::shared_ptr<PqpPipeline>>()};
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ6Pipeline1(
