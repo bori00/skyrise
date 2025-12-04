@@ -79,6 +79,16 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline5(
       const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
       const std::vector<ObjectReference>& lineitem_input_objects) const;
+  // Scan and partition customers.
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline6(
+      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  // Join customers with lineitems.
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline7(
+      size_t partition_count, const std::vector<ObjectReference>& customer_input_objects,
+      const std::vector<ObjectReference>& lineitem_input_objects) const;
+  // Final aggregation.
+  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline8(
+      const std::vector<ObjectReference>& input_objects) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ5() const;
 
   // Query 6.
