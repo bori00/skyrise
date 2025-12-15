@@ -126,19 +126,31 @@ void LambdaExecutor::CollectSqsMessages(
 
   auto handle_message = [&](const Aws::Vector<Aws::SQS::Model::Message>& messages) {
     for (const auto& message : messages) {
-      bool is_duplicate = false;
+      bool is_duplicate = false; // a message is a duplicate if a *successful* message has already been received from the same worker.
       const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
       const auto response_view = response.View();
       std::string responder_worker_id = response_view.GetString(kWorkerResponseIdAttribute);
+      bool is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0;
 
-      {
-        // Lock specifically for the check/insert operation
-        std::lock_guard<std::mutex> lock(dedup_mutex);
-        if (processed_worker_ids.contains(responder_worker_id)) {
-          is_duplicate = true;
-        } else {
-          processed_worker_ids.insert(responder_worker_id);
+      if (is_success) {
+        {
+          // Lock specifically for the check/insert operation
+          std::lock_guard<std::mutex> lock(dedup_mutex);
+          if (processed_worker_ids.contains(responder_worker_id)) {
+            is_duplicate = true;
+          } else {
+            processed_worker_ids.insert(responder_worker_id);
+          }
         }
+
+        if (not is_duplicate) {
+          processed_count.store(processed_count.load() + 1);
+        }
+      } else {
+        // TODO(fbori): maybe we shouldn't wait anymore after the 3rd failure?
+        AWS_LOGSTREAM_WARN(kCoordinatorTag.c_str(), "Worker "
+                                                          << response_view.GetString(kWorkerResponseIdAttribute)
+                                                          << " failed. Waiting for another execution.");
       }
 
       if (!is_duplicate) {
@@ -160,7 +172,6 @@ void LambdaExecutor::CollectSqsMessages(
                 .import_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseImportDataSizeBytesAttribute),
                 .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
 
-        processed_count.store(processed_count.load() + 1);
         on_finished_callback(fragment_result);
       } else {
         AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Duplicate message on SQS queue from worker "
@@ -169,8 +180,8 @@ void LambdaExecutor::CollectSqsMessages(
       }
 
       const auto delete_message_outcome = sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
-                                                                        .WithQueueUrl(sqs_response_queue_url)
-                                                                        .WithReceiptHandle(message.GetReceiptHandle()));
+                                                                         .WithQueueUrl(sqs_response_queue_url)
+                                                                         .WithReceiptHandle(message.GetReceiptHandle()));
       if (!delete_message_outcome.IsSuccess()) {
         AWS_LOGSTREAM_ERROR(kCoordinatorTag.c_str(),
                             "Failed to remove SQS message " << delete_message_outcome.GetError().GetMessage());
