@@ -119,7 +119,7 @@ void LambdaExecutor::CollectSqsMessages(
 
   const auto receive_message_request = Aws::SQS::Model::ReceiveMessageRequest()
                                            .WithQueueUrl(sqs_response_queue_url)
-                                           .WithMaxNumberOfMessages(1)
+                                           .WithMaxNumberOfMessages(10)
                                            .WithWaitTimeSeconds(20);
 
   std::vector<std::thread> threads;
