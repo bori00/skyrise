@@ -115,7 +115,7 @@ void LambdaExecutor::CollectSqsMessages(
 
   // For the idempotent message processing. See "Amazon SQS at-least-once delivery".
   std::mutex dedup_mutex;
-  std::unordered_set<Aws::String> processed_ids;
+  std::unordered_set<Aws::String> processed_worker_ids;
 
   const auto receive_message_request = Aws::SQS::Model::ReceiveMessageRequest()
                                            .WithQueueUrl(sqs_response_queue_url)
@@ -126,21 +126,20 @@ void LambdaExecutor::CollectSqsMessages(
 
   auto handle_message = [&](const Aws::Vector<Aws::SQS::Model::Message>& messages) {
     for (const auto& message : messages) {
-      Aws::String msg_id = message.GetMessageId();
       bool is_duplicate = false;
+      const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
+      const auto response_view = response.View();
+      std::string responder_worker_id = response_view.GetString(kWorkerResponseIdAttribute);
 
       {
         // Lock specifically for the check/insert operation
         std::lock_guard<std::mutex> lock(dedup_mutex);
-        if (processed_ids.find(msg_id) != processed_ids.end()) {
+        if (processed_worker_ids.contains(responder_worker_id)) {
           is_duplicate = true;
         } else {
-          processed_ids.insert(msg_id);
+          processed_worker_ids.insert(responder_worker_id);
         }
       }
-
-      const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
-      const auto response_view = response.View();
 
       if (!is_duplicate) {
         // We set the result to successful, as we received a message.
