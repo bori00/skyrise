@@ -126,7 +126,8 @@ void LambdaExecutor::CollectSqsMessages(
 
   auto handle_message = [&](const Aws::Vector<Aws::SQS::Model::Message>& messages) {
     for (const auto& message : messages) {
-      bool is_duplicate = false; // a message is a duplicate if a *successful* message has already been received from the same worker.
+      bool is_duplicate =
+          false;  // a message is a duplicate if a *successful* message has already been received from the same worker.
       const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
       const auto response_view = response.View();
       std::string responder_worker_id = response_view.GetString(kWorkerResponseIdAttribute);
@@ -142,15 +143,10 @@ void LambdaExecutor::CollectSqsMessages(
             processed_worker_ids.insert(responder_worker_id);
           }
         }
-
-        if (not is_duplicate) {
-          processed_count.store(processed_count.load() + 1);
-        }
       } else {
         // TODO(fbori): maybe we shouldn't wait anymore after the 3rd failure?
-        AWS_LOGSTREAM_WARN(kCoordinatorTag.c_str(), "Worker "
-                                                          << response_view.GetString(kWorkerResponseIdAttribute)
-                                                          << " failed. Waiting for another execution.");
+        AWS_LOGSTREAM_WARN(kCoordinatorTag.c_str(), "Worker " << response_view.GetString(kWorkerResponseIdAttribute)
+                                                              << " failed. Waiting for another execution.");
       }
 
       if (!is_duplicate) {
@@ -180,11 +176,15 @@ void LambdaExecutor::CollectSqsMessages(
       }
 
       const auto delete_message_outcome = sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
-                                                                         .WithQueueUrl(sqs_response_queue_url)
-                                                                         .WithReceiptHandle(message.GetReceiptHandle()));
+                                                                        .WithQueueUrl(sqs_response_queue_url)
+                                                                        .WithReceiptHandle(message.GetReceiptHandle()));
       if (!delete_message_outcome.IsSuccess()) {
         AWS_LOGSTREAM_ERROR(kCoordinatorTag.c_str(),
                             "Failed to remove SQS message " << delete_message_outcome.GetError().GetMessage());
+      }
+
+      if (is_success && !is_duplicate) {
+        processed_count.store(processed_count.load() + 1);
       }
     }
   };
