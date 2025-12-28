@@ -426,12 +426,17 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
   filter_operator1->SetLeftInput(import_operator);
 
+  // Keep only relevant columns
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{
+      PqpColumn_(0, DataType::kInt, false, "o_orderkey"), PqpColumn_(1, DataType::kDouble, false, "extendedprice"),
+      PqpColumn_(2, DataType::kDouble, false, "discount")};
+  const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  projection_operator->SetLeftInput(filter_operator1);
+
   // Partition by orderkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
       std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(filter_operator1);
-
-  // TODO: remove shipdate.
+  partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
@@ -531,11 +536,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2});
   import_operator_left->SetIdentity(left_import_id);
 
-  // Table: lineitems from pipeline 3. Column 0: orderkey. Column 1: extendedprice. Column 2: discount. Column 3:
-  // shipdate.
+  // Table: lineitems from pipeline 3. Column 0: orderkey. Column 1: extendedprice. Column 2: discount
   const std::string right_import_id = "right_import";
   auto import_operator_right =
-      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2, 3});
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2});
   import_operator_right->SetIdentity(right_import_id);
 
   // Join orders with lineitems.
@@ -549,7 +553,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Calculate l_extendedprice * (1 - l_discount)
   // Input: Column 0: o_orderkey. Column 1: o_orderdate. Column 2: o_shippriority. Column 3: l_orderkey. Column 4:
-  // l_extendedprice. Column 5: l_discount. Column 6: l_shipdate.
+  // l_extendedprice. Column 5: l_discount.
   const std::vector<std::shared_ptr<AbstractExpression>> expressions{
       PqpColumn_(0, DataType::kInt, false, "o_orderkey"), PqpColumn_(1, DataType::kString, false, "o_orderdate"),
       PqpColumn_(2, DataType::kInt, false, "o_shoppriority"),
