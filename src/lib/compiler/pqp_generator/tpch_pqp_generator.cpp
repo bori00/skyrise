@@ -150,7 +150,7 @@ size_t TpchPqpGenerator::GetShufflePartitionsCount() const {
     case QueryId::kTpchQ1:
       return 1;
     case QueryId::kTpchQ3:
-      return 1;
+      return 5;
     case QueryId::kTpchQ5:
       return 1;
     case QueryId::kTpchQ6:
