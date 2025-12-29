@@ -5,6 +5,7 @@
 #include <boost/container_hash/hash.hpp>
 
 #include "expression/expression_serialization.hpp"
+#include "operator/limit_operator.hpp"
 
 namespace {
 
@@ -54,8 +55,7 @@ std::shared_ptr<AbstractOperatorProxy> LimitOperatorProxy::OnDeepCopy(
 size_t LimitOperatorProxy::ShallowHash() const { return row_count_->Hash(); }
 
 std::shared_ptr<AbstractOperator> LimitOperatorProxy::CreateOperatorInstanceRecursively() {
-  Fail("CreateOperatorInstanceRecursively() is not yet implemented.");
-  return nullptr;
+  return std::make_shared<LimitOperator>(LeftInput()->GetOrCreateOperatorInstance(), row_count_);
 }
 
 }  // namespace skyrise
