@@ -576,12 +576,12 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // TODO: implement a sort-limit operator
   // Keep the top 10 only
-  // const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int32_t{10}));
-  // limit_operator->SetLeftInput(sort_operator);
+  const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int32_t{10}));
+  limit_operator->SetLeftInput(sort_operator);
 
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(sort_operator);
+  export_operator->SetLeftInput(limit_operator);
 
   const std::string pipeline_id = "pipeline-5";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);

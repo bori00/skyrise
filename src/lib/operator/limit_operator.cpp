@@ -50,25 +50,32 @@ std::shared_ptr<const Table> LimitOperator::OnExecute(const std::shared_ptr<Oper
       Segments output_segments;
 
       for (ColumnId column_id{0}; column_id < input_table->GetColumnCount(); ++column_id) {
-        // Resolve the column type dynamically
         ResolveDataType(input_table->ColumnDataType(column_id), [&](const auto resolved_data_type) {
           using DataType = std::decay_t<decltype(resolved_data_type)>;
 
           std::vector<DataType> segment_values;
+          std::vector<bool> segment_nulls;  // 1. Create a null vector
           segment_values.reserve(row_count_int);
+          segment_nulls.reserve(row_count_int);
 
           const auto input_segment = input_chunk->GetSegment(column_id);
 
           for (ChunkOffset i = 0; i < row_count_int; ++i) {
-            // Access the value from the segment (returns AllTypeVariant)
-            // We use std::get<DataType> to extract the typed value.
-            // Note: This assumes the segment is not NULL at this position.
             auto value = (*input_segment)[i];
-            segment_values.push_back(std::get<DataType>(value));
+
+            // 2. Check for NULL before access
+            if (VariantIsNull(value)) {
+              segment_values.push_back(DataType{});  // Default construct (value ignored)
+              segment_nulls.push_back(true);         // Mark as NULL
+            } else {
+              segment_values.push_back(std::get<DataType>(value));
+              segment_nulls.push_back(false);
+            }
           }
 
-          // Create a new ValueSegment with the copied data
-          output_segments.push_back(std::make_shared<ValueSegment<DataType>>(std::move(segment_values)));
+          // 3. Pass both vectors to the constructor to preserve nullability
+          output_segments.push_back(
+              std::make_shared<ValueSegment<DataType>>(std::move(segment_values), std::move(segment_nulls)));
         });
       }
 
