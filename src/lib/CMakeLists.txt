@@ -167,6 +167,8 @@ set(
     operator/import_operator.cpp
     operator/import_operator.hpp
     operator/join_operator_predicate.hpp
+    operator/limit_operator.hpp
+    operator/limit_operator.cpp
     operator/partition_operator.cpp
     operator/partition_operator.hpp
     operator/partitioning_function.cpp
