@@ -21,6 +21,8 @@ class InputHandler {
       const std::vector<ObjectReference>& object_references, const std::shared_ptr<AbstractChunkReaderFactory>& factory,
       const ImportFormat import_format, const std::optional<const std::vector<ColumnId>>& columns = std::nullopt);
 
+  size_t GetBytesReadCount() const;
+
  private:
   /*
    * Projection push down on storage backend, e.g., S3 level. It determines the required byte ranges for the given
@@ -55,6 +57,7 @@ class InputHandler {
                           const std::shared_ptr<AbstractChunkReaderFactory>& factory);
 
   std::mutex queue_mutex_;
+  size_t bytes_read = 0;
 };
 
 }  // namespace skyrise

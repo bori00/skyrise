@@ -19,6 +19,12 @@ void AbstractOperator::Execute(const std::shared_ptr<OperatorExecutionContext>& 
   OnCleanup();
 }
 
+std::vector<std::shared_ptr<const AbstractOperator>> AbstractOperator::GetAllSubOperators() const {
+  std::vector<std::shared_ptr<const AbstractOperator>> operators;
+  _CollectSubOperatorsRecursive(operators);
+  return operators;
+}
+
 std::shared_ptr<const Table> AbstractOperator::GetOutput() const { return output_; }
 
 void AbstractOperator::ClearOutput() { output_ = nullptr; }
@@ -41,5 +47,19 @@ std::shared_ptr<const AbstractOperator> AbstractOperator::LeftInput() const { re
 std::shared_ptr<const AbstractOperator> AbstractOperator::RightInput() const { return right_input_; }
 
 void AbstractOperator::OnCleanup() {}
+
+void AbstractOperator::_CollectSubOperatorsRecursive(
+    std::vector<std::shared_ptr<const AbstractOperator>>& operators) const {
+  if (left_input_) {
+    left_input_->_CollectSubOperatorsRecursive(operators);
+  }
+
+  if (right_input_) {
+    right_input_->_CollectSubOperatorsRecursive(operators);
+  }
+
+  // Add self after inputs (Post-Order)
+  operators.push_back(shared_from_this());
+}
 
 }  // namespace skyrise

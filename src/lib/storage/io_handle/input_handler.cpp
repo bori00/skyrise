@@ -43,6 +43,8 @@ std::shared_ptr<std::queue<LazyReaderConstructor>> InputHandler::CreateBufferedF
   return format_readers;
 }
 
+size_t InputHandler::GetBytesReadCount() const { return bytes_read; }
+
 std::optional<std::vector<std::pair<size_t, size_t>>> InputHandler::PrecomputeByteRanges(
     const std::shared_ptr<ObjectReader>& object_reader, const ImportFormat import_format, const size_t object_size,
     const std::optional<const std::vector<ColumnId>>& columns, const std::optional<std::vector<int32_t>>& partitions) {
@@ -77,11 +79,12 @@ void InputHandler::ReadObjectAsyncTask(const std::shared_ptr<ObjectReader>& obje
   const auto byte_ranges = PrecomputeByteRanges(object_reader, import_format, object_size, columns, partitions);
 
   // TODO(tobodner): Add instrumentation for throughput measurements.
-  // size_t read_size = 0;
-  // for (const auto& range : byte_ranges.value()) {
-  //   read_size += (range.second - range.first);
-  // }
-  // AWS_LOGSTREAM_INFO("OPERATOR_BYTES_CONSUMED", read_size);
+  size_t read_size = 0;
+  for (const auto& range : byte_ranges.value()) {
+    read_size += (range.second - range.first);
+  }
+  AWS_LOGSTREAM_INFO("OPERATOR_BYTES_CONSUMED", read_size);
+  bytes_read += read_size;
 
   const auto object_buffer = std::make_shared<ObjectBuffer>();
   const auto result = object_reader->ReadObjectAsync(object_buffer, byte_ranges);
@@ -103,7 +106,8 @@ void InputHandler::ReadObjectSyncTask(const std::shared_ptr<ObjectReader>& objec
   Assert(!result.IsError(), "Error while loading object " + object_reference.identifier);
 
   // TODO(tobodner): Add instrumentation for throughput measurements.
-  // AWS_LOGSTREAM_INFO("OPERATOR_BYTES_CONSUMED", object_size);
+  AWS_LOGSTREAM_INFO("OPERATOR_BYTES_CONSUMED", object_size);
+  bytes_read += object_size;
   std::lock_guard<std::mutex> lock_guard(queue_mutex_);
   format_readers->emplace(
       [factory, object_buffer, object_size, object_reference]() { return factory->Get(object_buffer, object_size); });
@@ -118,10 +122,13 @@ InputHandler::InitializeObjectReaders(const std::shared_ptr<const OperatorExecut
   size_and_reader_map.reserve(object_references.size());
 
   for (const auto& object_reference : object_references) {
+    AWS_LOGSTREAM_INFO("input_handler",
+                       "Trying to read " << object_reference.bucket_name << " " << object_reference.identifier);
     get_object_size_tasks.push_back(
         std::make_shared<GenericTask>([&size_and_reader_map, &execution_context, &object_reference, this] {
           const std::shared_ptr<ObjectReader> object_reader =
               execution_context->GetStorage(object_reference.bucket_name)->OpenForReading(object_reference.identifier);
+          AWS_LOGSTREAM_INFO("input_handler", "Object reader  " << object_reader);
 
           const std::string& expected_etag = object_reference.etag;
           if (!expected_etag.empty()) {
@@ -131,6 +138,7 @@ InputHandler::InitializeObjectReaders(const std::shared_ptr<const OperatorExecut
 
           Assert(!object_reader->GetStatus().GetError().IsError(), object_reader->GetStatus().GetError().GetMessage());
           const size_t object_size = object_reader->GetStatus().GetSize();
+          AWS_LOGSTREAM_INFO("input_handler", "Object size " << object_size);
 
           std::lock_guard<std::mutex> lock_guard(queue_mutex_);
           size_and_reader_map.insert({object_reference.identifier, {object_size, object_reader}});

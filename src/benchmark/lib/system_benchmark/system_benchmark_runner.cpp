@@ -26,22 +26,28 @@ std::shared_ptr<SystemBenchmarkResult> SystemBenchmarkRunner::RunSystemConfig(
 }
 
 void SystemBenchmarkRunner::Setup() {
+  typed_config_ = std::dynamic_pointer_cast<SystemBenchmarkConfig>(config_);
+  Assert(typed_config_, "SystemBenchmarkRunner can only consume SystemBenchmarkConfigs.");
+
   coordinator_function_name_ =
       config_->GetBenchmarkTimestamp() + "-" + kCoordinatorFunctionName + "-" + config_->GetBenchmarkId();
   worker_function_name_ =
       config_->GetBenchmarkTimestamp() + "-" + kWorkerFunctionName + "-" + config_->GetBenchmarkId();
   shuffle_storage_identifier_ =
       config_->GetBenchmarkTimestamp() + "-" + "systemBenchmark" + "-" + config_->GetBenchmarkId();
-  const size_t vcpus_per_worker_function_count = 4;
 
-  UploadFunctions(
-      iam_client_, lambda_client_,
-      std::vector<FunctionConfig>{
-          {GetFunctionZipFilePath(kCoordinatorBinaryName), coordinator_function_name_, kLambdaMaximumMemorySizeMb, true,
-           false},
-          {GetFunctionZipFilePath(kWorkerBinaryName), worker_function_name_,
-           static_cast<size_t>(vcpus_per_worker_function_count * kLambdaVcpuEquivalentMemorySizeMb), true, false}},
-      false);
+  const size_t worker_memory_size =
+      typed_config_->GetWorkerMemorySizeMb().value_or(kDefaultWorkerVCPUCount * kLambdaVcpuEquivalentMemorySizeMb);
+  Assert(worker_memory_size <= kLambdaMaximumMemorySizeMb, "The worker's memory cannot be ");
+
+  UploadFunctions(iam_client_, lambda_client_,
+                  std::vector<FunctionConfig>{{GetFunctionZipFilePath(kCoordinatorBinaryName),
+                                               coordinator_function_name_, kLambdaMaximumMemorySizeMb, true, false},
+                                              {GetFunctionZipFilePath(kWorkerBinaryName), worker_function_name_,
+                                               worker_memory_size, true, false}},
+                  false);
+
+  std::cout << "Uploaded functions: " << worker_function_name_ << " " << coordinator_function_name_ << "\n";
 }
 
 void SystemBenchmarkRunner::Teardown() {
@@ -72,6 +78,15 @@ std::shared_ptr<AbstractBenchmarkResult> SystemBenchmarkRunner::OnRunConfig() {
                                         shuffle_storage_identifier_ + "/repetition-" + std::to_string(i))
                             .ToJson())
             .WithString(kCoordinatorRequestWorkerFunctionAttribute, worker_function_name_);
+
+    if (typed_config_->GetStage1PartitionsPerWorkerCount().has_value()) {
+      payload = payload.WithInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute,
+                                  typed_config_->GetStage1PartitionsPerWorkerCount().value());
+    }
+    if (typed_config_->GetShufflePartitionsCount().has_value()) {
+      payload = payload.WithInt64(kCoordinatorRequestShufflePartitionsCountAttribute,
+                                  typed_config_->GetShufflePartitionsCount().value());
+    }
     const auto request_payload_stream = std::make_shared<std::stringstream>(payload.View().WriteCompact());
     invoke_request.SetBody(request_payload_stream);
 
@@ -79,6 +94,8 @@ std::shared_ptr<AbstractBenchmarkResult> SystemBenchmarkRunner::OnRunConfig() {
     if (outcome.IsSuccess()) {
       auto& response_payload_stream = outcome.GetResult().GetPayload();
       results[i] = Aws::Utils::Json::JsonValue(response_payload_stream);
+      results[i].WithString("WorkerFunction", worker_function_name_);
+      results[i].WithString("CoordinatorFunction", coordinator_function_name_);
     } else {
       AWS_LOGSTREAM_ERROR(kBenchmarkTag.c_str(), outcome.GetError().GetMessage());
     }

@@ -1,5 +1,5 @@
 # Tool versions
-ARG ARROW_VERSION=20.0.0
+ARG ARROW_VERSION=17.0.0
 ARG AWS_SDK_VERSION=1.11.579
 ARG BACKTRACE_VERSION=7939218
 ARG BOOST_VERSION=1.88.0
@@ -251,7 +251,7 @@ ARG LLVM_CLANG_VERSION
 ARG LLVM_CLANG_DIR
 
 WORKDIR ${LLVM_CLANG_DIR}/src
-RUN wget -nv https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_CLANG_VERSION}/llvm-project-${LLVM_CLANG_VERSION}.src.tar.xz -O - \
+RUN curl -L -# https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.6/llvm-project-20.1.6.src.tar.xz \
         | tar -xJ --strip-components=1 && \
     mkdir build && \
     cd build && \
@@ -351,6 +351,11 @@ RUN dnf update -y && \
     /usr/sbin/alternatives --install /usr/bin/ld ld /usr/bin/ld.lld 2015 && \
     /usr/sbin/alternatives --set ld /usr/bin/ld.lld
 
+# Fix CCACHE Permission Denied error for CLion's non-root user
+RUN mkdir -p /var/tmp/ccache && \
+     chmod -R 777 /var/tmp/ccache && \
+     ln -s /var/tmp/ccache /tmp/ccache
+
 COPY --from=base /opt /opt
 
 RUN for file in /opt/*/*/bin/*; \
@@ -367,4 +372,7 @@ RUN for file in /opt/*/*/bin/*; \
     ln -s /usr/local/bin/ccache /usr/local/bin/clang && \
     ln -s /usr/local/bin/ccache /usr/local/bin/clang++
 ENV CC=clang \
-    CXX=clang++
+    CXX=clang++ \
+    CCACHE_DIR=/var/tmp/ccache \
+    CMAKE_PREFIX_PATH=${ARROW_DIR}:${AWS_SDK_DIR}:${BOOST_DIR}
+#   CMAKE_PREFIX_PATH needed for the docker cmake toolchain in clion

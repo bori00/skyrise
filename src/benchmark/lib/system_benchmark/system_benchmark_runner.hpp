@@ -36,6 +36,9 @@ class SystemBenchmarkRunner : public AbstractBenchmarkRunner {
 
   std::shared_ptr<SystemBenchmarkConfig> typed_config_;
   std::shared_ptr<SystemBenchmarkResult> benchmark_result_;
+
+ private:
+  static constexpr size_t kDefaultWorkerVCPUCount = 4;
 };
 
 }  // namespace skyrise

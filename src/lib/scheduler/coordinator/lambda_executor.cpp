@@ -5,6 +5,7 @@
 
 #include <aws/core/utils/base64/Base64.h>
 #include <aws/lambda/model/InvokeRequest.h>
+#include <aws/sqs/model/ChangeMessageVisibilityRequest.h>
 #include <aws/sqs/model/CreateQueueRequest.h>
 #include <aws/sqs/model/DeleteMessageRequest.h>
 #include <aws/sqs/model/DeleteQueueRequest.h>
@@ -19,18 +20,23 @@
 namespace skyrise {
 
 LambdaExecutor::LambdaExecutor(const std::shared_ptr<const BaseClient>& client, const std::string& worker_function_name)
-    : client_(client), worker_function_name_(worker_function_name) {
-  SetupSqsResponseQueue();
-}
+    : client_(client), worker_function_name_(worker_function_name) {}
 
 LambdaExecutor::~LambdaExecutor() {
-  const auto request = Aws::SQS::Model::DeleteQueueRequest().WithQueueUrl(sqs_response_queue_url_);
-  client_->GetSqsClient()->DeleteQueue(request);
+  for (const auto& sqs_response_queue_url : sqs_response_queue_urls_) {
+    const auto request = Aws::SQS::Model::DeleteQueueRequest().WithQueueUrl(sqs_response_queue_url);
+    client_->GetSqsClient()->DeleteQueue(request);
+  }
 }
 
 void LambdaExecutor::Execute(
     const std::shared_ptr<PqpPipeline>& pqp_pipeline,
     const std::function<void(std::shared_ptr<PqpPipelineFragmentExecutionResult>)>& on_finished_callback) {
+  std::string sqs_response_queue_url = SetupSqsResponseQueue();
+  sqs_response_queue_urls_.push_back(sqs_response_queue_url);
+  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Executing lambda pipeline "
+                                                  << pqp_pipeline->Identity()
+                                                  << " on SQS queue: " << sqs_response_queue_url);
   Aws::Lambda::Model::InvokeRequest invoke_request;
   invoke_request.WithFunctionName(worker_function_name_).WithInvocationType(Aws::Lambda::Model::InvocationType::Event);
 
@@ -58,7 +64,8 @@ void LambdaExecutor::Execute(
 
     const std::string worker_id = worker_id_prefix + std::to_string(worker_count);
     request_body.WithString(kWorkerRequestIdAttribute, worker_id)
-        .WithString(kRequestResponseQueueUrlAttribute, sqs_response_queue_url_);
+        .WithString("pipeline_id", pipeline_id)
+        .WithString(kRequestResponseQueueUrlAttribute, sqs_response_queue_url);
 
     std::string payload = request_body.View().WriteCompact();
     if constexpr (kLambdaFunctionInvocationPayloadCompression) {
@@ -86,61 +93,105 @@ void LambdaExecutor::Execute(
     ++worker_count;
   }
 
-  collector_threads_.emplace_back(CollectSqsMessages, client_->GetSqsClient(), sqs_response_queue_url_, pipeline_id,
+  collector_threads_.emplace_back(CollectSqsMessages, client_->GetSqsClient(), sqs_response_queue_url, pipeline_id,
                                   fragment_count, on_finished_callback);
   collector_threads_.back().detach();
 };
 
-void LambdaExecutor::SetupSqsResponseQueue() {
+std::string LambdaExecutor::SetupSqsResponseQueue() const {
   const std::string queue_name = std::string(kRequestResponseQueueNamePrefix) + RandomString(8);
   Aws::SQS::Model::CreateQueueRequest request;
   request.WithQueueName(queue_name);
   const auto outcome = client_->GetSqsClient()->CreateQueue(request);
   Assert(outcome.IsSuccess(), outcome.GetError().GetMessage());
-  sqs_response_queue_url_ = outcome.GetResult().GetQueueUrl();
+  return outcome.GetResult().GetQueueUrl();
 }
 
 void LambdaExecutor::CollectSqsMessages(
     const std::shared_ptr<const Aws::SQS::SQSClient> sqs_client, const std::string sqs_response_queue_url,
     const std::string pipeline_id, const size_t invocation_count,
     const std::function<void(std::shared_ptr<PqpPipelineFragmentExecutionResult>)> on_finished_callback) {
-  size_t sqs_message_count = 0;
+  std::atomic<size_t> processed_count;
+
+  // For the idempotent message processing. See "Amazon SQS at-least-once delivery".
+  std::mutex dedup_mutex;
+  std::unordered_set<Aws::String> processed_worker_ids;
 
   const auto receive_message_request = Aws::SQS::Model::ReceiveMessageRequest()
                                            .WithQueueUrl(sqs_response_queue_url)
-                                           .WithMaxNumberOfMessages(1)
+                                           .WithMaxNumberOfMessages(10)
                                            .WithWaitTimeSeconds(20);
 
   std::vector<std::thread> threads;
 
   auto handle_message = [&](const Aws::Vector<Aws::SQS::Model::Message>& messages) {
     for (const auto& message : messages) {
+      bool is_duplicate =
+          false;  // a message is a duplicate if a *successful* message has already been received from the same worker.
       const auto response = Aws::Utils::Json::JsonValue(message.GetBody());
       const auto response_view = response.View();
-      // We set the result to successful, as we received a message.
-      const auto fragment_result =
-          std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
-              .pipeline_id = pipeline_id,
-              .worker_id = response_view.GetString(kWorkerResponseIdAttribute),
-              .is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0,
-              .message = response_view.GetString(kResponseMessageAttribute),
-              .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
-              .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
-              .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
-              .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
+      std::string responder_worker_id = response_view.GetString(kWorkerResponseIdAttribute);
+      bool is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0;
+
+      if (is_success) {
+        {
+          // Lock specifically for the check/insert operation
+          std::lock_guard<std::mutex> lock(dedup_mutex);
+          if (processed_worker_ids.contains(responder_worker_id)) {
+            is_duplicate = true;
+          } else {
+            processed_worker_ids.insert(responder_worker_id);
+          }
+        }
+      } else {
+        // TODO(fbori): maybe we shouldn't wait anymore after the 3rd failure?
+        AWS_LOGSTREAM_WARN(kCoordinatorTag.c_str(), "Worker " << response_view.GetString(kWorkerResponseIdAttribute)
+                                                              << " failed. Waiting for another execution.");
+      }
+
+      if (!is_duplicate) {
+        // We set the result to successful, as we received a message.
+        Assert(pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Processed - SQS response handler of pipeline "
+                                                        << pipeline_id << " received response of "
+                                                        << response_view.GetString("pipeline_id") << " from worker "
+                                                        << response_view.GetString(kWorkerResponseIdAttribute));
+        const auto fragment_result =
+            std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
+                .pipeline_id = pipeline_id,
+                .worker_id = response_view.GetString(kWorkerResponseIdAttribute),
+                .is_success = response_view.GetInteger(kResponseIsSuccessAttribute) != 0,
+                .message = response_view.GetString(kResponseMessageAttribute),
+                .runtime_ms = (size_t)response_view.GetInteger(kWorkerResponseRuntimeMsAttribute),
+                .function_instance_size_mb = (size_t)response_view.GetInt64(kWorkerResponseMemorySizeMbAttribute),
+                .export_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseExportDataSizeBytesAttribute),
+                .import_data_size_bytes = (size_t)response_view.GetInteger(kWorkerResponseImportDataSizeBytesAttribute),
+                .metering = response_view.GetObject(kResponseMeteringAttribute).Materialize()});
+
+        on_finished_callback(fragment_result);
+      } else {
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Duplicate message on SQS queue from worker "
+                                                        << response_view.GetString(kWorkerResponseIdAttribute)
+                                                        << ". Message dropped.");
+      }
 
       const auto delete_message_outcome = sqs_client->DeleteMessage(Aws::SQS::Model::DeleteMessageRequest()
                                                                         .WithQueueUrl(sqs_response_queue_url)
                                                                         .WithReceiptHandle(message.GetReceiptHandle()));
-      Assert(delete_message_outcome.IsSuccess(), delete_message_outcome.GetError().GetMessage());
-      on_finished_callback(fragment_result);
+      if (!delete_message_outcome.IsSuccess()) {
+        AWS_LOGSTREAM_ERROR(kCoordinatorTag.c_str(),
+                            "Failed to remove SQS message " << delete_message_outcome.GetError().GetMessage());
+      }
+
+      if (is_success && !is_duplicate) {
+        processed_count.store(processed_count.load() + 1);
+      }
     }
   };
 
-  while (sqs_message_count < invocation_count) {
+  while (processed_count.load() < invocation_count) {
     const auto receive_message_outcome = sqs_client->ReceiveMessage(receive_message_request);
     const auto messages = receive_message_outcome.GetResult().GetMessages();
-    sqs_message_count += messages.size();
     threads.emplace_back(handle_message, messages);
   }
 

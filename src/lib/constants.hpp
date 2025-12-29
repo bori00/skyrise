@@ -39,7 +39,7 @@ inline constexpr std::string_view kLambdaFunctionHandler = "FunctionHandler";
 /**
  * The name of the AWS IAM role for the Lambda function.
  */
-inline constexpr std::string_view kLambdaFunctionRoleName = "AWSLambda";
+inline constexpr std::string_view kLambdaFunctionRoleName = "IAM-role-bori00-skyrise";  // "AWSLambda";
 
 inline const std::string kLambdaFunctionUrlParametersAttribute = "queryStringParameters";
 
@@ -76,13 +76,13 @@ inline constexpr uint32_t kParquetFooterMetadataOffsetBytes = 8;
  * Coordinator binary and function names.
  */
 inline const std::string kCoordinatorBinaryName = "skyriseCoordinatorFunction";
-inline const std::string kCoordinatorFunctionName = kCoordinatorBinaryName;
+inline const std::string kCoordinatorFunctionName = "skyriseCoordinatorFunction";
 
 /**
  * Worker binary and function names.
  */
 inline const std::string kWorkerBinaryName = "skyriseWorkerFunction";
-inline const std::string kWorkerFunctionName = kWorkerBinaryName;
+inline const std::string kWorkerFunctionName = "skyriseWorkerFunction";
 
 /**
  * Response queue name prefix.
@@ -118,6 +118,8 @@ inline const std::string kCoordinatorRequestQueryStringAttribute = "query_string
 inline const std::string kCoordinatorRequestScaleFactorAttribute = "scale_factor";
 inline const std::string kCoordinatorRequestShuffleStorageAttribute = "storage_prefix";
 inline const std::string kCoordinatorRequestWorkerFunctionAttribute = "worker_function_name";
+inline const std::string kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute = "stage_1_partitions_per_worker";
+inline const std::string kCoordinatorRequestShufflePartitionsCountAttribute = "shuffle_partitions_count";
 inline const std::string kCoordinatorResponseResultObjectAttribute = "result";
 inline const std::string kCoordinatorResponseResultUrlStringAttribute = "result_url";
 inline const std::string kCoordinatorResponseExecutionStatisticsAttribute = "execution_statistics";
@@ -126,6 +128,7 @@ inline const std::string kCoordinatorResponseMemorySizeAttribute = "coordinator_
 inline const std::string kCoordinatorResponseWorkerMemorySizeAttribute = "worker_memory_size_mb";
 inline const std::string kCoordinatorResponseWorkerInvocationCountAttribute = "worker_invocation_count";
 inline const std::string kCoordinatorResponseWorkerAccumulatedRuntimeAttribute = "worker_accumulated_runtime_ms";
+inline const std::string kCorodinatorResponseExecutionCostCentAttribute = "execution_cost_cent";
 
 /**
  * Worker request and response parameters.
@@ -143,17 +146,17 @@ inline const std::string kWorkerResponseExportDataSizeBytesAttribute = "export_d
 /**
  * S3 bucket for benchmark datasets.
  */
-inline const std::string kS3BenchmarkDatasetsBucket = "benchmark-data-sets";
+inline const std::string kS3BenchmarkDatasetsBucket = "skyrise-dataset-bucket";
 
 /**
  * Storage containers for benchmarks.
  */
-inline const std::string kSkyriseBenchmarkContainer = "skyrise-benchmark";
+inline const std::string kSkyriseBenchmarkContainer = "skyrise-benchmark-container";
 inline const std::string kS3ExpressBucket = "skyrise-benchmark--use1-az4--x-s3";
 
 /**
  * S3 bucket for CI tests.
  */
-inline const std::string kSkyriseTestBucket = "skyrise-ci";
+inline const std::string kSkyriseTestBucket = "skyrise-test-bucket";
 
 }  // namespace skyrise

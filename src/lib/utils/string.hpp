@@ -24,7 +24,7 @@ inline const std::string kCharacterSetHex = "0123456789abcdef";
  * Crops @param file_path to ensure readable Assert messages.
  * E.g., "/long/path/1234/src/lib/file.cpp" becomes "src/lib/file.cpp"
  */
-constexpr std::string TrimSourceFilePath(const std::string& file_path) {
+inline std::string TrimSourceFilePath(const std::string& file_path) {
   const auto src_position = file_path.find("/src/");
   return src_position == std::string::npos ? file_path : file_path.substr(src_position + 1);
 }

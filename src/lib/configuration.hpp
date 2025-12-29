@@ -52,7 +52,7 @@ inline constexpr std::string_view kDatabaseSchemaName = "SkyriseDB";
 /**
  * The default bucket name and prefix for storing query results.
  */
-inline constexpr std::string_view kExportBucketName = "skyrise";
+inline constexpr std::string_view kExportBucketName = "skyrise-bori00";
 inline constexpr std::string_view kExportRootPrefix = "result/";
 
 /**
@@ -122,14 +122,14 @@ inline constexpr int kSqsApproximateQueueSizePollIntervalMilliseconds = 100;
 /**
  * The range of IP addresses (subnet) of the default VPC.
  */
-const Aws::String kDefaultSubnetId = "subnet-1225ae5f";
+const Aws::String kDefaultSubnetId = "subnet-0e6d9563abf9b703f";
 
 /**
  * The availability zone we commonly use in the benchmarks.
  */
-const Aws::String kDefaultAvailabilityZone = "us-east-1b";
-const Aws::String kDefaultSubnet = "subnet-3f66a260";
-const Aws::String kDefaultSecurityGroup = "sg-4a242c6a";
-const Aws::String kSshSecurityGroup = "sg-05fb6181d99306e8c";
+const Aws::String kDefaultAvailabilityZone = "us-east-1a";
+const Aws::String kDefaultSubnet = "subnet-0e6d9563abf9b703f";  // is this a duplicate of the id?
+const Aws::String kDefaultSecurityGroup = "sg-0c7f95c2150ed8df5";
+const Aws::String kSshSecurityGroup = "sg-0d675c1f26a66acf7";  // The default group pre-created for the VPC?
 
 }  // namespace skyrise
