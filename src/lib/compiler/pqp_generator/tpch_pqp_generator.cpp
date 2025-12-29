@@ -216,10 +216,6 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  // Partial aggregate l_quantity, per l_returnflag x l_linestatus
-  // TODO: add missing SUMS
-  // TODO sum(l_extendedprice * (1 - l_discount)) as sum_disc_price,
-  // TODO sum(l_extendedprice * (1 - l_discount) * (1 + l_tax)) as sum_charge,
   // Column 0: l_extendedprice * (1 - l_discount). Column 1: quantity. Column 2: extendedprice, Column 3: discount.
   // Column 4: returnflag. Column 5: linestatus. Column 6: charge
   std::vector<std::shared_ptr<AbstractExpression>> aggregates = {
@@ -329,7 +325,6 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 //   l_returnflag,
 //   l_linestatus;
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ1() const {
-  // TODO: check if projection pushdown applicable, to reduce the export size.
   const auto pipeline1 = GenerateQ1Pipeline1(ListTableObjects("lineitem", FileFormat::kParquet));
   const auto pipeline2 = GenerateQ1Pipeline2(pipeline1.first);
 
@@ -639,7 +634,6 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(alias_operator);
 
   const std::string pipeline_id = "pipeline-6";
-  // TODO: switch back. Fails on SF100, works for SF1. Probably too much data to sort or to export?
   auto output_objects = GenerateOutputObjectIds(1, pipeline_id, kFinalResultsExportFormat);
   const auto pipeline6 = GeneratePipeline(pipeline_id, left_import_id, export_operator, kFinalResultsExportFormat,
                                           input_objects, output_objects);
@@ -744,15 +738,12 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   for (size_t i = 0; i < region_input_objects.size(); ++i) {
     worker_input_mappings[region_input_id].push_back(region_input_objects[i]);
   }
-  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "reading " << region_input_objects.size() << " region tables.");
   for (size_t i = 0; i < nation_input_objects.size(); ++i) {
     worker_input_mappings[nation_input_id].push_back(nation_input_objects[i]);
   }
-  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "reading " << nation_input_objects.size() << " nation tables.");
   for (size_t i = 0; i < supplier_input_objects.size(); ++i) {
     worker_input_mappings[supplier_input_id].push_back(supplier_input_objects[i]);
   }
-  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "reading " << supplier_input_objects.size() << " supplier tables.");
   auto pipeline1 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
   const PipelineFragmentDefinition fragment(worker_input_mappings, output_objects[0], kIntermediateResultsExportFormat);
   pipeline1->AddFragmentDefinition(fragment);
@@ -879,12 +870,16 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
   filter_operator1->SetLeftInput(import_operator);
 
-  // TODO: remove date from output.
+  // Keep only relevant columns
+  const std::vector<std::shared_ptr<AbstractExpression>> expressions{PqpColumn_(0, DataType::kInt, false, "o_orderkey"),
+                                                                     PqpColumn_(1, DataType::kInt, false, "o_custkey")};
+  const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
+  projection_operator->SetLeftInput(filter_operator1);
 
   // Partition by orderkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
       std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(filter_operator1);
+  partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
@@ -906,9 +901,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     const std::vector<ObjectReference>& lineitem_input_objects) const {
   using namespace expression_functional;
   const std::string orders_import_id = "left_import";
-  // From pipeline 1. Column 0: orderkey. Column 1: custkey. Column 4: orderdate.
+  // From pipeline 1. Column 0: orderkey. Column 1: custkey.
   const auto orders_import_operator =
-      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1, 2});
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1});
   orders_import_operator->SetIdentity(orders_import_id);
 
   const std::string lineitem_import_id = "right_import";
@@ -927,9 +922,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   join_operator->SetRightInput(lineitem_import_operator);
 
   const std::vector<std::shared_ptr<AbstractExpression>> expressions{
-      PqpColumn_(1, DataType::kInt, false, "o_custkey"), PqpColumn_(3, DataType::kString, false, "n_name"),
-      PqpColumn_(5, DataType::kFloat, false, "l_extendedprice"), PqpColumn_(6, DataType::kFloat, false, "l_discount"),
-      PqpColumn_(7, DataType::kInt, false, "s_nationkey")};
+      PqpColumn_(1, DataType::kInt, false, "o_custkey"), PqpColumn_(2, DataType::kString, false, "n_name"),
+      PqpColumn_(4, DataType::kFloat, false, "l_extendedprice"), PqpColumn_(5, DataType::kFloat, false, "l_discount"),
+      PqpColumn_(6, DataType::kInt, false, "s_nationkey")};
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
