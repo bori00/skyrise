@@ -30,9 +30,7 @@ std::shared_ptr<const Table> LimitOperator::OnExecute(const std::shared_ptr<Oper
 
   Assert(!row_count_result->IsNull(0), "The row count cannot be null");
 
-  unsigned int row_count_int = 1;  // row_count_result.get()->GetValues()[0];
-
-  // AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Limiting number of rows to " << row_count_int);
+  unsigned int row_count_int = row_count_result.get()->GetValues()[0];
 
   std::vector<std::shared_ptr<Chunk>> output_chunks;
   output_chunks.reserve(std::min(input_table->ChunkCount(), row_count_int));
@@ -47,11 +45,9 @@ std::shared_ptr<const Table> LimitOperator::OnExecute(const std::shared_ptr<Oper
       // const_pointer_cast is needed because the output table expects mutable chunks
       output_chunks.push_back(std::const_pointer_cast<Chunk>(input_chunk));
       row_count_int -= chunk_size;
-      // AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Chunk with rows " << chunk_size);
     } else {
       // CASE 2: Slice the final chunk (keep first 'rows_to_keep' rows)
       Segments output_segments;
-      // AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Final chunk " << chunk_size);
 
       for (ColumnId column_id{0}; column_id < input_table->GetColumnCount(); ++column_id) {
         // Resolve the column type dynamically

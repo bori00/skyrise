@@ -50,7 +50,6 @@ void AbstractOperator::OnCleanup() {}
 
 void AbstractOperator::_CollectSubOperatorsRecursive(
     std::vector<std::shared_ptr<const AbstractOperator>>& operators) const {
-
   if (left_input_) {
     left_input_->_CollectSubOperatorsRecursive(operators);
   }

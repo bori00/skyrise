@@ -569,9 +569,19 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto aggregate_operator = std::make_shared<AggregateOperatorProxy>(groupby_column_ids, aggregates);
   aggregate_operator->SetLeftInput(projection_operator);
 
+  // Order by revenue desc, o_orderdate.
+  const auto sort_operator = std::make_shared<SortOperatorProxy>(std::vector<SortColumnDefinition>{
+      SortColumnDefinition(3, SortMode::kDescending) /* revenue */, SortColumnDefinition(1) /* orderdate */});
+  sort_operator->SetLeftInput(aggregate_operator);
+
+  // TODO: implement a sort-limit operator
+  // Keep the top 10 only
+  // const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int32_t{10}));
+  // limit_operator->SetLeftInput(sort_operator);
+
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(aggregate_operator);
+  export_operator->SetLeftInput(sort_operator);
 
   const std::string pipeline_id = "pipeline-5";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
@@ -615,18 +625,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       SortColumnDefinition(3, SortMode::kDescending) /* revenue */, SortColumnDefinition(1) /* orderdate */});
   sort_operator->SetLeftInput(import_operator_left);
 
-  // TODO: remove. Only valid threshold for SF100.
-  // const auto filter_predicate = std::make_shared<BinaryPredicateExpression>(
-  //     PredicateCondition::kGreaterThan, PqpColumn_(3, DataType::kDouble, false, "revenue"), Value_(360000.0));
-  // const auto filter_operator = std::make_shared<FilterOperatorProxy>(filter_predicate);
-  // filter_operator->SetLeftInput(sort_operator);
-
-  // TODO: implement the limit operator
   // TODO: implement a sort-limit operator
-  const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int32_t{3}));
+  const auto limit_operator = std::make_shared<LimitOperatorProxy>(Value_(int32_t{10}));
   limit_operator->SetLeftInput(sort_operator);
 
-  // TODO: base on sort op.
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(
       std::vector<ColumnId>{0, 1, 2, 3},
       std::vector<std::string>{"l_orderkey", "o_orderdate", "o_shippriority", "revenue"});
