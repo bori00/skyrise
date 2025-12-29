@@ -428,8 +428,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Keep only relevant columns
   const std::vector<std::shared_ptr<AbstractExpression>> expressions{
-      PqpColumn_(0, DataType::kInt, false, "o_orderkey"), PqpColumn_(1, DataType::kDouble, false, "extendedprice"),
-      PqpColumn_(2, DataType::kDouble, false, "discount")};
+      PqpColumn_(0, DataType::kInt, false, "o_orderkey"), PqpColumn_(1, DataType::kFloat, false, "extendedprice"),
+      PqpColumn_(2, DataType::kFloat, false, "discount")};
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
