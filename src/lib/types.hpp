@@ -284,4 +284,6 @@ enum class QueryId : std::uint8_t {
 
 enum class ScaleFactor : std::uint8_t { kSf1, kSf10, kSf100, kSf1000 };
 
+enum class JoinAlgorithm : std::uint8_t { kPartitionedHashJoin, kBroadcastHashJoin };
+
 }  // namespace skyrise
