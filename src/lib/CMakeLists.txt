@@ -70,6 +70,8 @@ set(
     compiler/pqp_generator/etl_pqp_generator.hpp
     compiler/pqp_generator/tpch_pqp_generator.cpp
     compiler/pqp_generator/tpch_pqp_generator.hpp
+    compiler/pqp_generator/utils/pipeline_generator.hpp
+    compiler/pqp_generator/utils/pipeline_generator.cpp
 )
 
 set(
