@@ -1289,14 +1289,15 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator4);
 
-  // TODO; add for partitioned join
-  // const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-  //     std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  // partition_operator->SetLeftInput(projection_operator);
+  // TODO; add for partitioned join.
+  // TODO use parameter
+  const auto partition_operator =
+      std::make_shared<PartitionOperatorProxy>(std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, 1));
+  partition_operator->SetLeftInput(projection_operator);
 
   const auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(projection_operator);
+  export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-1";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -1392,7 +1393,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   right_input_id.append("pipeline-3").append("-").append(right_import_id);
 
   pqp_utils::PipelineInput left_input =
-      pqp_utils::PipelineInput(left_input_id, pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
+      pqp_utils::PipelineInput(left_input_id, pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead,
                                input_objects_left, shuffle_storage_.bucket_name);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(right_input_id, pqp_utils::PipelineInput::InputShareType::kBroadcastedRead,
