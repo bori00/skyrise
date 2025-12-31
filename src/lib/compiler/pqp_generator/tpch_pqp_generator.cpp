@@ -1247,7 +1247,7 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ6() const {
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12Pipeline1(
-    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+    const size_t /* partition_count */, const std::vector<ObjectReference>& input_objects) const {
   // NOLINTNEXTLINE(google-build-using-namespace)
   using namespace expression_functional;
 
@@ -1290,13 +1290,13 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   projection_operator->SetLeftInput(filter_operator4);
 
   // TODO; add for partitioned join
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
+  // const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+  //     std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  // partition_operator->SetLeftInput(projection_operator);
 
   const auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  export_operator->SetLeftInput(projection_operator);
 
   const std::string pipeline_id = "pipeline-1";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
