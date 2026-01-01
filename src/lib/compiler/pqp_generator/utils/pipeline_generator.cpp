@@ -40,15 +40,11 @@ void AddPipelineInputToMap(
       }
       break;
     case PipelineInput::InputShareType::kPartitionedByFileRead:
-      // TODO: some fragments may have no inputs. Is that an issue? To test.
-      for (size_t fragment_id = 0; fragment_id < fragments_count; ++fragment_id) {
-        fragment_to_inputs[fragment_id][pipeline_input.input_id()] = std::vector<ObjectReference>{};
-      }
+      Assert(pipeline_input.input_objects().size() > fragments_count,
+             "For kPartitionedByFileRead, each fragment must get at least one file.");
       for (size_t i = 0; i < pipeline_input.input_objects().size(); ++i) {
-        auto obj_reference = pipeline_input.input_objects()[i];
-        // TODO: remove the partition-to-1 patch
         fragment_to_inputs[i % fragments_count][pipeline_input.input_id()].emplace_back(
-            pipeline_input.bucket_name(), obj_reference.identifier, "", std::vector<int32_t>{0});
+            pipeline_input.input_objects()[i]);
       }
   }
 }

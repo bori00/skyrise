@@ -1247,7 +1247,7 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ6() const {
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12Pipeline1(
-    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+    const size_t /* partition_count */, const std::vector<ObjectReference>& input_objects) const {
   // NOLINTNEXTLINE(google-build-using-namespace)
   using namespace expression_functional;
 
@@ -1291,13 +1291,13 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // TODO; add for partitioned join.
   // TODO use parameter
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
+  // const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+  //     std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  // partition_operator->SetLeftInput(projection_operator);
 
   const auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  export_operator->SetLeftInput(projection_operator);
 
   const std::string pipeline_id = "pipeline-1";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -1310,20 +1310,20 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12Pipeline2(
-    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+    const size_t /* partition_count */, const std::vector<ObjectReference>& input_objects) const {
   const std::string left_import_id = "left_import";
   const auto import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 5});
   import_operator->SetIdentity(left_import_id);
 
   // TODO: add for partitioned join
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(import_operator);
+  // const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+  //     std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  // partition_operator->SetLeftInput(import_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  export_operator->SetLeftInput(import_operator);
 
   const std::string pipeline_id = "pipeline-2";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -1349,7 +1349,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   const std::string right_import_id = "right_import";
   auto import_operator_right =
-      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 1});
+      std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 5});
   import_operator_right->SetIdentity(right_import_id);
 
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
@@ -1392,38 +1392,38 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::string right_input_id;
   right_input_id.append("pipeline-3").append("-").append(right_import_id);
 
-  // pqp_utils::PipelineInput left_input =
-  //     pqp_utils::PipelineInput(left_input_id, pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-  //                              input_objects_left, shuffle_storage_.bucket_name);
-  // pqp_utils::PipelineInput right_input =
-  //     pqp_utils::PipelineInput(right_input_id, pqp_utils::PipelineInput::InputShareType::kBroadcastedRead,
-  //                              input_objects_right, shuffle_storage_.bucket_name);
-  // std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
-  //     pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
-
-  for (size_t i = 0; i < partition_count; ++i) {
-    std::unordered_map<std::string, std::vector<ObjectReference>> map;
-    map[left_input_id] = std::vector<ObjectReference>{};
-    for (const auto& left_input : input_objects_left) {
-      AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Pipeline 3 in Q12 will read LEFT input from "
-                                                      << left_input.bucket_name << left_input.identifier);
-      map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
-                                      std::vector<int32_t>{static_cast<int32_t>(i)});
-    }
-    map[right_input_id] = std::vector<ObjectReference>{};
-    for (const auto& right_input : input_objects_right) {
-      AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Pipeline 3 in Q12 will read RIGHT input from "
-                                                      << right_input.bucket_name << right_input.identifier);
-      map[right_input_id].emplace_back(right_input);
-    }
-    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
-    pipeline3->AddFragmentDefinition(fragment);
-  }
+  pqp_utils::PipelineInput left_input =
+      pqp_utils::PipelineInput(left_input_id, pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead,
+                               input_objects_left, shuffle_storage_.bucket_name);
+  pqp_utils::PipelineInput right_input =
+      pqp_utils::PipelineInput(right_input_id, pqp_utils::PipelineInput::InputShareType::kBroadcastedRead,
+                               input_objects_right, shuffle_storage_.bucket_name);
+  std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
+      pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 
   // for (size_t i = 0; i < partition_count; ++i) {
-  //   const PipelineFragmentDefinition fragment(fragment_to_inputs[i], output_objects[i], FileFormat::kParquet);
+  //   std::unordered_map<std::string, std::vector<ObjectReference>> map;
+  //   map[left_input_id] = std::vector<ObjectReference>{};
+  //   for (const auto& left_input : input_objects_left) {
+  //     AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Pipeline 3 in Q12 will read LEFT input from "
+  //                                                     << left_input.bucket_name << left_input.identifier);
+  //     map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
+  //                                     std::vector<int32_t>{static_cast<int32_t>(i)});
+  //   }
+  //   map[right_input_id] = std::vector<ObjectReference>{};
+  //   for (const auto& right_input : input_objects_right) {
+  //     AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Pipeline 3 in Q12 will read RIGHT input from "
+  //                                                     << right_input.bucket_name << right_input.identifier);
+  //     map[right_input_id].emplace_back(right_input);
+  //   }
+  //   const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
   //   pipeline3->AddFragmentDefinition(fragment);
   // }
+
+  for (size_t i = 0; i < partition_count; ++i) {
+    const PipelineFragmentDefinition fragment(fragment_to_inputs[i], output_objects[i], FileFormat::kParquet);
+    pipeline3->AddFragmentDefinition(fragment);
+  }
   return {output_objects, pipeline3};
 }
 
