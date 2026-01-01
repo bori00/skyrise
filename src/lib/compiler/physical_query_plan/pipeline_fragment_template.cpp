@@ -40,17 +40,18 @@ bool PipelineFragmentDefinition::operator==(const PipelineFragmentDefinition& rh
 }
 
 PipelineFragmentDefinition PipelineFragmentDefinition::FromJson(const Aws::Utils::Json::JsonView& json) {
-  const auto bucket = json.GetString("source_bucket");
-  const auto prefix = json.GetString("source_prefix");
-  const auto partitions = json.KeyExists("source_partitions")
-                              ? std::make_optional(JsonArrayToVector<int32_t>(json.GetArray("source_partitions")))
-                              : std::nullopt;
   std::unordered_map<std::string, std::vector<ObjectReference>> id_to_objects;
-  const auto json_id_to_objects = json.GetObject("source_objects").GetAllObjects();
-  for (const auto& [id, json_objects] : json_id_to_objects) {
-    for (size_t i = 0; i < json_objects.AsArray().GetLength(); ++i) {
-      const auto identifier = prefix + "/" + json_objects.AsArray().GetItem(i).GetString("source_suffix");
-      const auto etag = json_objects.AsArray().GetItem(i).GetString("etag");
+  const auto json_id_to_input_data = json.GetObject("inputs").GetAllObjects();
+  for (const auto& [id, json_inputs] : json_id_to_input_data) {
+    const auto bucket = json_inputs.GetString("source_bucket");
+    const auto prefix = json_inputs.GetString("source_prefix");
+    const auto partitions = json.KeyExists("source_partitions")
+                                ? std::make_optional(JsonArrayToVector<int32_t>(json.GetArray("source_partitions")))
+                                : std::nullopt;
+    const auto json_inputs_objects = json_inputs.GetArray("objects");
+    for (size_t i = 0; i < json_inputs_objects.GetLength(); ++i) {
+      const auto identifier = prefix + "/" + json_inputs_objects.GetItem(i).GetString("source_suffix");
+      const auto etag = json_inputs_objects.GetItem(i).GetString("etag");
       id_to_objects[id].emplace_back(bucket, identifier, etag, partitions);
     }
   }
@@ -65,6 +66,7 @@ Aws::Utils::Json::JsonValue PipelineFragmentDefinition::ToJson() const {
 
   Aws::Utils::Json::JsonValue inputs;
   for (const auto& [identity, objects] : identity_to_objects) {
+    Aws::Utils::Json::JsonValue identity_json;
     Aws::Utils::Array<Aws::Utils::Json::JsonValue> objects_array(objects.size());
     for (size_t i = 0; i < objects.size(); ++i) {
       size_t last_separator_position = objects[i].identifier.find_last_of('/');
@@ -81,18 +83,19 @@ Aws::Utils::Json::JsonValue PipelineFragmentDefinition::ToJson() const {
       std::string etag = objects[i].etag;
       objects_array[i] = Aws::Utils::Json::JsonValue().WithString("source_suffix", suffix).WithString("etag", etag);
     }
-    inputs.WithArray(identity, objects_array);
+    identity_json = identity_json.WithArray("objects", objects_array)
+                        .WithString("source_bucket", bucket)
+                        .WithString("source_prefix", prefix);
+    if (partitions) {
+      identity_json = identity_json.WithArray("source_partitions", VectorToJsonArray(*partitions));
+    }
+    inputs = inputs.WithObject(identity, identity_json);
   }
 
   auto json = Aws::Utils::Json::JsonValue()
-                  .WithString("source_bucket", bucket)
-                  .WithString("source_prefix", prefix)
-                  .WithObject("source_objects", inputs)
+                  .WithObject("inputs", inputs)
                   .WithObject("target_object", target_object.ToJson())
                   .WithString("target_format", std::string(magic_enum::enum_name(target_format)));
-  if (partitions) {
-    json = json.WithArray("source_partitions", VectorToJsonArray(*partitions));
-  }
   return json;
 }
 
