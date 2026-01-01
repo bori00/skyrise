@@ -45,9 +45,10 @@ PipelineFragmentDefinition PipelineFragmentDefinition::FromJson(const Aws::Utils
   for (const auto& [id, json_inputs] : json_id_to_input_data) {
     const auto bucket = json_inputs.GetString("source_bucket");
     const auto prefix = json_inputs.GetString("source_prefix");
-    const auto partitions = json_inputs.KeyExists("source_partitions")
-                                ? std::make_optional(JsonArrayToVector<int32_t>(json_inputs.GetArray("source_partitions")))
-                                : std::nullopt;
+    const auto partitions =
+        json_inputs.KeyExists("source_partitions")
+            ? std::make_optional(JsonArrayToVector<int32_t>(json_inputs.GetArray("source_partitions")))
+            : std::nullopt;
     const auto json_inputs_objects = json_inputs.GetArray("objects");
     for (size_t i = 0; i < json_inputs_objects.GetLength(); ++i) {
       const auto identifier = prefix + "/" + json_inputs_objects.GetItem(i).GetString("source_suffix");
