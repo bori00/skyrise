@@ -1310,20 +1310,20 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12Pipeline2(
-    const size_t /* partition_count */, const std::vector<ObjectReference>& input_objects) const {
+    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
   const std::string left_import_id = "left_import";
   const auto import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 5});
   import_operator->SetIdentity(left_import_id);
 
   // TODO: add for partitioned join
-  // const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-  //     std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  // partition_operator->SetLeftInput(import_operator);
+  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  partition_operator->SetLeftInput(import_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(import_operator);
+  export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-2";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -1405,11 +1405,15 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     std::unordered_map<std::string, std::vector<ObjectReference>> map;
     map[left_input_id] = std::vector<ObjectReference>{};
     for (const auto& left_input : input_objects_left) {
+      AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Pipeline 3 in Q12 will read LEFT input from "
+                                                      << left_input.bucket_name << left_input.identifier);
       map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
                                       std::vector<int32_t>{static_cast<int32_t>(i)});
     }
     map[right_input_id] = std::vector<ObjectReference>{};
     for (const auto& right_input : input_objects_right) {
+      AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Pipeline 3 in Q12 will read RIGHT input from "
+                                                      << right_input.bucket_name << right_input.identifier);
       map[right_input_id].emplace_back(right_input);
     }
     const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
@@ -1462,15 +1466,16 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const 
   size_t partition_count = GetShufflePartitionsCount();
 
   const auto pipeline1 = GenerateQ12Pipeline1(partition_count, ListTableObjects("lineitem", FileFormat::kParquet));
-  const auto pipeline2 = GenerateQ12Pipeline2(partition_count, ListTableObjects("orders", FileFormat::kParquet));
-  const auto pipeline3 = GenerateQ12Pipeline3(partition_count, pipeline1.first, pipeline2.first);
+  // const auto pipeline2 = GenerateQ12Pipeline2(partition_count, ListTableObjects("orders", FileFormat::kParquet));
+  const auto pipeline3 =
+      GenerateQ12Pipeline3(partition_count, pipeline1.first, ListTableObjects("orders", FileFormat::kParquet));
   const auto pipeline4 = GenerateQ12Pipeline4(1, pipeline3.first);
 
   pipeline1.second->SetAsPredecessorOf(pipeline3.second);
-  pipeline2.second->SetAsPredecessorOf(pipeline3.second);
+  // pipeline2.second->SetAsPredecessorOf(pipeline3.second);
   pipeline3.second->SetAsPredecessorOf(pipeline4.second);
 
-  return {pipeline1.second, pipeline2.second, pipeline3.second, pipeline4.second};
+  return {pipeline1.second, pipeline3.second, pipeline4.second};
 }
 
 TpchPqpGeneratorConfig::TpchPqpGeneratorConfig(const CompilerName& compiler_name, const QueryId& query_id,
