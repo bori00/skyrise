@@ -1310,20 +1310,20 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12Pipeline2(
-    const size_t partition_count, const std::vector<ObjectReference>& input_objects) const {
+    const size_t /* partition_count */, const std::vector<ObjectReference>& input_objects) const {
   const std::string left_import_id = "left_import";
   const auto import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 5});
   import_operator->SetIdentity(left_import_id);
 
   // TODO: add for partitioned join
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(import_operator);
+  // const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+  //     std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  // partition_operator->SetLeftInput(import_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  export_operator->SetLeftInput(import_operator);
 
   const std::string pipeline_id = "pipeline-2";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
