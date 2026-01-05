@@ -77,7 +77,8 @@ std::shared_ptr<AbstractBenchmarkResult> SystemBenchmarkRunner::OnRunConfig() {
                         ObjectReference(kSkyriseBenchmarkContainer,
                                         shuffle_storage_identifier_ + "/repetition-" + std::to_string(i))
                             .ToJson())
-            .WithString(kCoordinatorRequestWorkerFunctionAttribute, worker_function_name_);
+            .WithString(kCoordinatorRequestWorkerFunctionAttribute, worker_function_name_)
+            .WithObject(kCoordinatorRequestJoinConfigurationAttribute, typed_config_->GetJoinConfiguration());
 
     if (typed_config_->GetStage1PartitionsPerWorkerCount().has_value()) {
       payload = payload.WithInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute,

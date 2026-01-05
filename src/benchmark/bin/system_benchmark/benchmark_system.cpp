@@ -19,8 +19,26 @@ int main(int argc, char** argv) {
     option_adder("shuffle_partitions_count", "The number of partitions in each shuffle stage of the query.",
                  cxxopts::value<size_t>());
     option_adder("worker_memory_size_mb", "The memory assigned to each worker, in MB.", cxxopts::value<size_t>());
+    option_adder("join_config_filepath",
+                 "The filepath to a json file defining the join algorithm used in each join of the query. "
+                 "For verification reasons, if a file is provided, then all join algorithms need to be covered"
+                 "If no file is provided, then a Partitioned Hash Join will be applied everywhere",
+                 cxxopts::value<std::string>());
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
+
+    Aws::Utils::Json::JsonValue json =
+        skyrise::ParseJoinConfigurationFilePath(parse_result.as_optional<std::string>("join_config_filepath"));
+
+    std::cout << "Parsed" << std::endl;
+
+    std::cout << json.View().WriteReadable() << std::endl;
+
+    if (json.View().KeyExists("pipeline3")) {
+      std::cout << "Has key" << std::endl;
+    } else {
+      std::cout << "No key" << std::endl;
+    }
 
     auto benchmark = std::make_shared<skyrise::SystemBenchmark>(
         executable.GetClient().GetIamClient(), executable.GetClient().GetLambdaClient(),
@@ -32,7 +50,7 @@ int main(int argc, char** argv) {
         parse_result["after_repetition_delays_min"].as<std::vector<size_t>>(),
         parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count"),
         parse_result.as_optional<size_t>("shuffle_partitions_count"),
-        parse_result.as_optional<size_t>("worker_memory_size_mb"));
+        parse_result.as_optional<size_t>("worker_memory_size_mb"), json);
     executable.ExecuteBenchmark(benchmark);
   } catch (const std::exception& exception) {
     std::cout << exception.what() << "\n";

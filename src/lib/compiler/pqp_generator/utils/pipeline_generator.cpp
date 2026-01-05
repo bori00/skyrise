@@ -40,7 +40,7 @@ void AddPipelineInputToMap(
       }
       break;
     case PipelineInput::InputShareType::kPartitionedByFileRead:
-      Assert(pipeline_input.input_objects().size() > fragments_count,
+      Assert(pipeline_input.input_objects().size() >= fragments_count,
              "For kPartitionedByFileRead, each fragment must get at least one file.");
       for (size_t i = 0; i < pipeline_input.input_objects().size(); ++i) {
         fragment_to_inputs[i % fragments_count][pipeline_input.input_id()].emplace_back(
