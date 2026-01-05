@@ -28,7 +28,7 @@ std::shared_ptr<AbstractCompilerConfig> AbstractCompilerConfig::FromJson(const A
       magic_enum::enum_cast<ScaleFactor>(json.GetString(kCoordinatorRequestScaleFactorAttribute)).value();
   const ObjectReference shuffle_storage =
       ObjectReference::FromJson(json.GetObject(kCoordinatorRequestShuffleStorageAttribute));
-  const Aws::Utils::Json::JsonValue& join_configuration =
+  const Aws::Utils::Json::JsonValue join_configuration =
       json.GetObject(kCoordinatorRequestJoinConfigurationAttribute).Materialize();
   if (join_configuration.View().KeyExists("pipeline3")) {
     AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "FromJson Has key")
