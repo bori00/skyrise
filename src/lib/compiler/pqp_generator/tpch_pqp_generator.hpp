@@ -133,7 +133,7 @@ class TpchPqpGeneratorConfig : public AbstractCompilerConfig {
  private:
   const std::optional<size_t> stage_1_partitions_per_worker_count_;
   const std::optional<size_t> shuffle_partitions_count_;
-  const Aws::Utils::Json::JsonValue& join_configuration_;
+  const Aws::Utils::Json::JsonValue join_configuration_;
 };
 
 }  // namespace skyrise
