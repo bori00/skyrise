@@ -120,6 +120,7 @@ inline const std::string kCoordinatorRequestShuffleStorageAttribute = "storage_p
 inline const std::string kCoordinatorRequestWorkerFunctionAttribute = "worker_function_name";
 inline const std::string kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute = "stage_1_partitions_per_worker";
 inline const std::string kCoordinatorRequestShufflePartitionsCountAttribute = "shuffle_partitions_count";
+inline const std::string kCoordinatorRequestJoinConfigurationAttribute = "join_configuration";
 inline const std::string kCoordinatorResponseResultObjectAttribute = "result";
 inline const std::string kCoordinatorResponseResultUrlStringAttribute = "result_url";
 inline const std::string kCoordinatorResponseExecutionStatisticsAttribute = "execution_statistics";

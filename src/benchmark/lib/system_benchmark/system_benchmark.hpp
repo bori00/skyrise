@@ -24,7 +24,10 @@ class SystemBenchmark : public AbstractBenchmark {
       /* The number of partitions applied in any shuffle operation. If empty, then the hardcoded values will be used. */
       ,
       const std::optional<size_t> worker_memory_size_mb = std::nullopt
-      /* The maximum memory assigned to each worker. If empty, then the hardcoded values will be used. */);
+      /* The maximum memory assigned to each worker. If empty, then the hardcoded values will be used. */
+      ,
+      const Aws::Utils::Json::JsonValue& join_configuration = Aws::Utils::Json::JsonValue()
+      /* The JSON configuration defining the join algorithm for all join operators of the query OR an empty JSON object. */);
 
   const Aws::String& Name() const override;
 
