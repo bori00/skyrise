@@ -129,6 +129,9 @@ void BenchmarkExecutable::ExecuteBenchmark(const std::shared_ptr<skyrise::Abstra
                   .WithString("date", skyrise::GetFormattedTimestamp("%Y/%m/%d-%H:%M:%S")))
           .WithArray("runs", benchmark_result);
 
+  // TODO(bori00): add join configuration for system benchmark
+  // TODO(bori00): remove non system-benchmark specific parameters from here
+
   skyrise::WriteStringToFile(output.View().WriteReadable(), cli_parse_result_["output"].as<std::string>());
 
   DeinitializeClients();

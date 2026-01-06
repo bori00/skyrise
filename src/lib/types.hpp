@@ -286,4 +286,27 @@ enum class ScaleFactor : std::uint8_t { kSf1, kSf10, kSf100, kSf1000 };
 
 enum class JoinAlgorithm : std::uint8_t { kPartitionedHashJoin, kBroadcastHashJoin };
 
+constexpr std::string_view JoinAlgorithmToString(JoinAlgorithm algo) {
+  switch (algo) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+      return "PartitionedHashJoin";
+    case JoinAlgorithm::kBroadcastHashJoin:
+      return "BroadcastHashJoin";
+    default:
+      return "Unknown";
+  }
+}
+
+constexpr std::optional<JoinAlgorithm> StringToJoinAlgorithm(std::string_view name) {
+  if (name == "PartitionedHashJoin") {
+    return JoinAlgorithm::kPartitionedHashJoin;
+  }
+  if (name == "BroadcastHashJoin") {
+    return JoinAlgorithm::kBroadcastHashJoin;
+  }
+
+  // Return empty optional if no match found
+  return std::nullopt;
+}
+
 }  // namespace skyrise

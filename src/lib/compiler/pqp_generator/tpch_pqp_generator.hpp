@@ -18,6 +18,12 @@ class TpchPqpGenerator : public AbstractCompiler {
 
   std::vector<std::shared_ptr<PqpPipeline>> GeneratePqp() const final;
 
+  struct PipelineData {
+    std::vector<ObjectReference> output_objects;
+    std::optional<std::shared_ptr<PqpPipeline>> pqp_pipeline;
+    std::vector<ColumnId> columns_to_read_in_successor;
+  };
+
  private:
   const std::optional<size_t> stage_1_partitions_per_worker_count_;
   const std::optional<size_t> shuffle_partitions_count_;
@@ -37,6 +43,11 @@ class TpchPqpGenerator : public AbstractCompiler {
   size_t GetStage1PartitionsPerWorkerCount() const;
 
   size_t GetShufflePartitionsCount() const;
+
+  JoinAlgorithm GetJoinAlgorithmForPipeline(const std::string pipeline_id) const;
+
+  void SetAsPredecessorOf(std::optional<std::shared_ptr<PqpPipeline>> predecessor,
+                          std::optional<std::shared_ptr<PqpPipeline>> successor) const;
 
   // Query 1.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ1Pipeline1(
@@ -102,15 +113,17 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ6() const;
 
   // Query 12.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ12Pipeline1(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ12Pipeline2(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ12Pipeline3(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
-      const std::vector<ObjectReference>& input_objects_right) const;
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ12Pipeline4(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ12Pipeline1(const size_t partition_count,
+                                    const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ12Pipeline2(const size_t partition_count,
+                                    const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ12Pipeline3(const size_t partition_count,
+                                    const std::vector<ObjectReference>& input_objects_left,
+                                    const std::vector<ObjectReference>& input_objects_right,
+                                    const std::vector<ColumnId>& left_column_indices,
+                                    const std::vector<ColumnId>& right_column_indices) const;
+  PipelineData GenerateQ12Pipeline4(const size_t partition_count, const std::vector<ObjectReference>& input_objects,
+                                    const std::vector<ColumnId>& right_column_indices) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ12() const;
 };
 
