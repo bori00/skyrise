@@ -25,13 +25,6 @@ namespace skyrise {
 ImportOperatorProxy::ImportOperatorProxy(const std::vector<ObjectReference>& object_references,
                                          const std::vector<ColumnId>& column_ids)
     : AbstractOperatorProxy(OperatorType::kImport), column_ids_(column_ids), object_references_(object_references) {
-  if (object_references_.size() > 0) {
-    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Initialised import operator proxy for "
-                                               << object_references_[0].bucket_name << " "
-                                               << object_references_[0].identifier);
-  } else {
-    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Initialised import operator proxy for empty references");
-  }
   Assert(!column_ids_.empty(), "Import must involve at least one ColumnId.");
 }
 
@@ -39,13 +32,6 @@ const std::string& ImportOperatorProxy::Name() const { return kName; }
 
 void ImportOperatorProxy::SetObjectReferences(std::vector<ObjectReference> object_references) {
   object_references_ = std::move(object_references);
-  if (object_references_.size() > 0) {
-    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Initialised import operator proxy for "
-                                               << object_references_[0].bucket_name << " "
-                                               << object_references_[0].identifier);
-  } else {
-    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Initialised import operator proxy for empty references");
-  }
 }
 
 const std::vector<ObjectReference>& ImportOperatorProxy::ObjectReferences() const { return object_references_; }
@@ -104,9 +90,6 @@ Aws::Utils::Json::JsonValue ImportOperatorProxy::ToJson() const {
         .WithString(kJsonKeyBucketName, object_reference.bucket_name)
         .WithString(kJsonKeyObjectKey, object_reference.identifier)
         .WithString(kJsonKeyObjectEtag, object_reference.etag);
-    AWS_LOGSTREAM_ERROR("import_operator_proxy", "Saving JSON for object reference " << object_reference.bucket_name
-                                                                                     << " "
-                                                                                     << object_reference.identifier);
   }
 
   auto json_output = AbstractOperatorProxy::ToJson()
@@ -130,9 +113,6 @@ std::shared_ptr<AbstractOperatorProxy> ImportOperatorProxy::FromJson(const Aws::
     objects_references.emplace_back(serialized_object_reference.GetString(kJsonKeyBucketName),
                                     serialized_object_reference.GetString(kJsonKeyObjectKey),
                                     serialized_object_reference.GetString(kJsonKeyObjectEtag));
-    AWS_LOGSTREAM_ERROR("import_operator_proxy", "DECODING JSON for object reference "
-                                                     << serialized_object_reference.GetString(kJsonKeyBucketName) << " "
-                                                     << serialized_object_reference.GetString(kJsonKeyObjectKey));
   }
 
   auto import_proxy = ImportOperatorProxy::Make(objects_references, column_ids);
@@ -183,10 +163,6 @@ size_t ImportOperatorProxy::ShallowHash() const {
 std::shared_ptr<AbstractOperator> ImportOperatorProxy::CreateOperatorInstanceRecursively() {
   Assert(!object_references_.empty(), "ImportOperatorProxy must specify at least one object.");
   Assert(!column_ids_.empty(), "ImportOperatorProxy must specify at least one column id.");
-
-  AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Generating import operator for objects of "
-                                             << object_references_[0].bucket_name << " "
-                                             << object_references_[0].identifier);
 
   // The ImportOperator requires a reader factory for its operations. It can be generated from the ImportOptions object
   // of this proxy operator. However, if ImportOptions was not set, the default ImportOptions must be used. In this
