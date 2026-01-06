@@ -21,8 +21,8 @@ int main(int argc, char** argv) {
     option_adder("worker_memory_size_mb", "The memory assigned to each worker, in MB.", cxxopts::value<size_t>());
     option_adder("join_config_filepath",
                  "The filepath to a json file defining the join algorithm used in each join of the query. "
-                 "For verification reasons, if a file is provided, then all join algorithms need to be covered"
-                 "If no file is provided, then a Partitioned Hash Join will be applied everywhere",
+                 "If no file is provided, or no algorihtm is specified for a pipeline, then a Partitioned Hash Join will be applied."
+                 "Format: 'pipeline-<id>': 'BroadcastHashJoin' / 'PartitionedHashJoin'",
                  cxxopts::value<std::string>());
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
