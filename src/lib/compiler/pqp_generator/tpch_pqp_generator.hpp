@@ -46,8 +46,11 @@ class TpchPqpGenerator : public AbstractCompiler {
 
   JoinAlgorithm GetJoinAlgorithmForPipeline(const std::string pipeline_id) const;
 
-  void SetAsPredecessorOf(std::optional<std::shared_ptr<PqpPipeline>> predecessor,
-                          std::optional<std::shared_ptr<PqpPipeline>> successor) const;
+  static void SetAsPredecessorOf(std::optional<std::shared_ptr<PqpPipeline>> predecessor,
+                                 std::optional<std::shared_ptr<PqpPipeline>> successor);
+
+  static std::vector<std::shared_ptr<PqpPipeline>> FilterNonEmptyPipelines(
+      const std::vector<std::optional<std::shared_ptr<PqpPipeline>>>& pipelines);
 
   // Query 1.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ1Pipeline1(
