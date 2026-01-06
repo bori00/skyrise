@@ -51,8 +51,6 @@ Aws::Utils::Array<Aws::Utils::Json::JsonValue> SystemBenchmark::OnRun(
   return runner->RunSystemConfig(config_)->GetResults();
 }
 
-std::shared_ptr<SystemBenchmarkConfig> SystemBenchmark::GetSystemBenchmarkConfig() const {
-  return config_;
-}
+std::shared_ptr<SystemBenchmarkConfig> SystemBenchmark::GetSystemBenchmarkConfig() const { return config_; }
 
 }  // namespace skyrise

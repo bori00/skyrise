@@ -193,10 +193,20 @@ JoinAlgorithm TpchPqpGenerator::GetJoinAlgorithmForPipeline(const std::string pi
 }
 
 void TpchPqpGenerator::SetAsPredecessorOf(std::optional<std::shared_ptr<PqpPipeline>> predecessor,
-                                          std::optional<std::shared_ptr<PqpPipeline>> successor) const {
+                                          std::optional<std::shared_ptr<PqpPipeline>> successor) {
   if (predecessor.has_value() && successor.has_value()) {
     predecessor.value()->SetAsPredecessorOf(successor.value());
   }
+}
+
+std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::FilterNonEmptyPipelines(
+    const std::vector<std::optional<std::shared_ptr<PqpPipeline>>>& pipelines) {
+  auto pipelines_range = pipelines | std::views::filter([](const auto& opt) { return opt.has_value(); }) |
+                         std::views::transform([](const auto& opt) { return opt.value(); });
+  std::vector<std::shared_ptr<PqpPipeline>> result;
+  result.reserve(pipelines.size());
+  std::ranges::copy(pipelines_range, std::back_inserter(result));
+  return result;
 }
 
 std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ1Pipeline1(
@@ -1493,14 +1503,8 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const 
   SetAsPredecessorOf(pipeline2_data.pqp_pipeline, pipeline3_data.pqp_pipeline);
   SetAsPredecessorOf(pipeline3_data.pqp_pipeline, pipeline4_data.pqp_pipeline);
 
-  auto opt_pipelines = {pipeline1_data.pqp_pipeline, pipeline2_data.pqp_pipeline, pipeline3_data.pqp_pipeline,
-                        pipeline4_data.pqp_pipeline};
-  auto pipelines_range = opt_pipelines | std::views::filter([](const auto& opt) { return opt.has_value(); }) |
-                         std::views::transform([](const auto& opt) { return opt.value(); });
-  std::vector<std::shared_ptr<PqpPipeline>> result;
-  result.reserve(opt_pipelines.size());
-  std::ranges::copy(pipelines_range, std::back_inserter(result));
-  return result;
+  return FilterNonEmptyPipelines({pipeline1_data.pqp_pipeline, pipeline2_data.pqp_pipeline, pipeline3_data.pqp_pipeline,
+                                  pipeline4_data.pqp_pipeline});
 }
 
 TpchPqpGeneratorConfig::TpchPqpGeneratorConfig(const CompilerName& compiler_name, const QueryId& query_id,
