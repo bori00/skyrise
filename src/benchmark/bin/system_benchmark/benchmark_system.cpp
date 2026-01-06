@@ -27,19 +27,6 @@ int main(int argc, char** argv) {
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
 
-    Aws::Utils::Json::JsonValue json =
-        skyrise::ParseJoinConfigurationFilePath(parse_result.as_optional<std::string>("join_config_filepath"));
-
-    std::cout << "Parsed" << std::endl;
-
-    std::cout << json.View().WriteReadable() << std::endl;
-
-    if (json.View().KeyExists("pipeline3")) {
-      std::cout << "Has key" << std::endl;
-    } else {
-      std::cout << "No key" << std::endl;
-    }
-
     auto benchmark = std::make_shared<skyrise::SystemBenchmark>(
         executable.GetClient().GetIamClient(), executable.GetClient().GetLambdaClient(),
         executable.GetClient().GetS3Client(),
@@ -50,7 +37,8 @@ int main(int argc, char** argv) {
         parse_result["after_repetition_delays_min"].as<std::vector<size_t>>(),
         parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count"),
         parse_result.as_optional<size_t>("shuffle_partitions_count"),
-        parse_result.as_optional<size_t>("worker_memory_size_mb"), json);
+        parse_result.as_optional<size_t>("worker_memory_size_mb"),
+        skyrise::ParseJoinConfigurationFilePath(parse_result.as_optional<std::string>("join_config_filepath")));
     executable.ExecuteBenchmark(benchmark);
   } catch (const std::exception& exception) {
     std::cout << exception.what() << "\n";

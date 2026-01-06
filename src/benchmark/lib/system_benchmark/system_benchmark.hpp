@@ -34,6 +34,8 @@ class SystemBenchmark : public AbstractBenchmark {
   Aws::Utils::Array<Aws::Utils::Json::JsonValue> Run(
       const std::shared_ptr<AbstractBenchmarkRunner>& benchmark_runner) override;
 
+  std::shared_ptr<SystemBenchmarkConfig> GetSystemBenchmarkConfig() const;
+
  private:
   Aws::Utils::Array<Aws::Utils::Json::JsonValue> OnRun(const std::shared_ptr<SystemBenchmarkRunner>& runner);
 

@@ -34,12 +34,6 @@ SystemBenchmark::SystemBenchmark(std::shared_ptr<const Aws::IAM::IAMClient> iam_
     config_ = std::make_shared<SystemBenchmarkConfig>(
         compiler_name, query_id, scale_factor, concurrent_instance_count, repetition_count, after_repetition_callbacks,
         stage_1_partitions_per_worker_count, shuffle_partitions_count, worker_memory_size_mb, join_configuration);
-
-    if (config_->GetJoinConfiguration().View().KeyExists("pipeline3")) {
-      std::cout << "Config Has key" << std::endl;
-    } else {
-      std::cout << "Config No key" << std::endl;
-    }
   }
 }
 
@@ -55,6 +49,10 @@ Aws::Utils::Array<Aws::Utils::Json::JsonValue> SystemBenchmark::Run(
 Aws::Utils::Array<Aws::Utils::Json::JsonValue> SystemBenchmark::OnRun(
     const std::shared_ptr<SystemBenchmarkRunner>& runner) {
   return runner->RunSystemConfig(config_)->GetResults();
+}
+
+std::shared_ptr<SystemBenchmarkConfig> SystemBenchmark::GetSystemBenchmarkConfig() const {
+  return config_;
 }
 
 }  // namespace skyrise

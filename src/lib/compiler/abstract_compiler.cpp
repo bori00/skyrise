@@ -30,11 +30,6 @@ std::shared_ptr<AbstractCompilerConfig> AbstractCompilerConfig::FromJson(const A
       ObjectReference::FromJson(json.GetObject(kCoordinatorRequestShuffleStorageAttribute));
   const Aws::Utils::Json::JsonValue join_configuration =
       json.GetObject(kCoordinatorRequestJoinConfigurationAttribute).Materialize();
-  if (join_configuration.View().KeyExists("pipeline3")) {
-    AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "FromJson Has key")
-  } else {
-    AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "FromJson No key")
-  }
   const std::optional<size_t> stage_1_partitions_per_worker_count =
       json.KeyExists(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute)
           ? std::optional<size_t>(json.GetInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute))
