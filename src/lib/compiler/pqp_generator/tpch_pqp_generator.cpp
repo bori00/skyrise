@@ -380,14 +380,17 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
   filter_operator1->SetLeftInput(import_operator);
 
-  // Partition by custkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
-  partition_operator->SetLeftInput(filter_operator1);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin) {
+    // Partition by custkey.
+    const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
+    partition_operator->SetLeftInput(filter_operator1);
+    export_operator->SetLeftInput(partition_operator);
+  } else {
+    export_operator->SetLeftInput(filter_operator1);
+  }
 
   const std::string pipeline_id = "pipeline-1";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -419,14 +422,17 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  // Partition by custkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin) {
+    // Partition by custkey.
+    const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+    partition_operator->SetLeftInput(projection_operator);
+    export_operator->SetLeftInput(partition_operator);
+  } else {
+    export_operator->SetLeftInput(projection_operator);
+  }
 
   const std::string pipeline_id = "pipeline-2";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -460,14 +466,17 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  // Partition by orderkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin) {
+    // Partition by orderkey.
+    const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+    partition_operator->SetLeftInput(projection_operator);
+    export_operator->SetLeftInput(partition_operator);
+  } else {
+    export_operator->SetLeftInput(projection_operator);
+  }
 
   const std::string pipeline_id = "pipeline-3";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -514,14 +523,17 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
-  // Partition by orderkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin) {
+    // Partition by orderkey.
+    const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+    partition_operator->SetLeftInput(projection_operator);
+    export_operator->SetLeftInput(partition_operator);
+  } else {
+    export_operator->SetLeftInput(projection_operator);
+  }
 
   const std::string pipeline_id = "pipeline-4";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
@@ -529,22 +541,27 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   auto pipeline4 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
 
   std::string left_input_id;
-  left_input_id.append("pipeline-4").append("-").append(left_import_id);
+  left_input_id.append(pipeline_id).append("-").append(left_import_id);
   std::string right_input_id;
-  right_input_id.append("pipeline-4").append("-").append(right_import_id);
+  right_input_id.append(pipeline_id).append("-").append(right_import_id);
+
+  pqp_utils::PipelineInput left_input =
+      pqp_utils::PipelineInput(left_input_id,
+                               GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
+                                   ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
+                                   : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
+                               input_objects_left, shuffle_storage_.bucket_name);
+  pqp_utils::PipelineInput right_input =
+      pqp_utils::PipelineInput(right_input_id,
+                               GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
+                                   ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
+                                   : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
+                               input_objects_right, shuffle_storage_.bucket_name);
+  std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
+      pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
+
   for (size_t i = 0; i < partition_count; ++i) {
-    std::unordered_map<std::string, std::vector<ObjectReference>> map;
-    map[left_input_id] = std::vector<ObjectReference>{};
-    for (const auto& left_input : input_objects_left) {
-      map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
-                                      std::vector<int32_t>{static_cast<int32_t>(i)});
-    }
-    map[right_input_id] = std::vector<ObjectReference>{};
-    for (const auto& right_input : input_objects_right) {
-      map[right_input_id].emplace_back(shuffle_storage_.bucket_name, right_input.identifier, "",
-                                       std::vector<int32_t>{static_cast<int32_t>(i)});
-    }
-    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
+    const PipelineFragmentDefinition fragment(fragment_to_inputs[i], output_objects[i], FileFormat::kParquet);
     pipeline4->AddFragmentDefinition(fragment);
   }
   return {output_objects, pipeline4};
@@ -619,19 +636,24 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   left_input_id.append("pipeline-5").append("-").append(left_import_id);
   std::string right_input_id;
   right_input_id.append("pipeline-5").append("-").append(right_import_id);
+
+  pqp_utils::PipelineInput left_input =
+      pqp_utils::PipelineInput(left_input_id,
+                               GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
+                                   ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
+                                   : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
+                               input_objects_left, shuffle_storage_.bucket_name);
+  pqp_utils::PipelineInput right_input =
+      pqp_utils::PipelineInput(right_input_id,
+                               GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
+                                   ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
+                                   : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
+                               input_objects_right, shuffle_storage_.bucket_name);
+  std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
+      pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
+
   for (size_t i = 0; i < partition_count; ++i) {
-    std::unordered_map<std::string, std::vector<ObjectReference>> map;
-    map[left_input_id] = std::vector<ObjectReference>{};
-    for (const auto& left_input : input_objects_left) {
-      map[left_input_id].emplace_back(shuffle_storage_.bucket_name, left_input.identifier, "",
-                                      std::vector<int32_t>{static_cast<int32_t>(i)});
-    }
-    map[right_input_id] = std::vector<ObjectReference>{};
-    for (const auto& right_input : input_objects_right) {
-      map[right_input_id].emplace_back(shuffle_storage_.bucket_name, right_input.identifier, "",
-                                       std::vector<int32_t>{static_cast<int32_t>(i)});
-    }
-    const PipelineFragmentDefinition fragment(map, output_objects[i], FileFormat::kParquet);
+    const PipelineFragmentDefinition fragment(fragment_to_inputs[i], output_objects[i], FileFormat::kParquet);
     pipeline5->AddFragmentDefinition(fragment);
   }
   return {output_objects, pipeline5};
@@ -801,6 +823,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   const auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+
   export_operator->SetLeftInput(partition_operator);
 
   const std::string pipeline_id = "pipeline-2";
