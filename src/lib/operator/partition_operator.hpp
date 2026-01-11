@@ -15,8 +15,7 @@ namespace skyrise {
 class PartitionOperator : public AbstractOperator {
  public:
   PartitionOperator(std::shared_ptr<AbstractOperator> input,
-                    std::shared_ptr<AbstractPartitioningFunction> partitioning_function,
-                    bool sort_within_partition = true);
+                    std::shared_ptr<AbstractPartitioningFunction> partitioning_function, bool sort_within_partition);
 
   const std::string& Name() const override;
 

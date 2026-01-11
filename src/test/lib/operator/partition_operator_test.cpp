@@ -36,7 +36,7 @@ TEST_F(PartitionOperatorTest, HashPartitioning) {
   const auto table_wrapper = std::make_shared<TableWrapper>(table_);
 
   const auto partitioning_function = std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0, 2}, 4);
-  const auto partition = std::make_shared<PartitionOperator>(table_wrapper, partitioning_function);
+  const auto partition = std::make_shared<PartitionOperator>(table_wrapper, partitioning_function, false);
 
   EXPECT_EQ(partition->Name(), "Partition");
 
