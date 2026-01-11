@@ -151,6 +151,9 @@ set(
     operator/abstract_aggregate_operator.hpp
     operator/aggregate_hash_operator.cpp
     operator/aggregate_hash_operator.hpp
+    operator/abstract_join_operator.hpp
+    operator/abstract_join_operator.cpp
+    operator/abstract_aggregate_operator.cpp
     operator/abstract_operator.cpp
     operator/abstract_operator.hpp
     operator/alias_operator.cpp
