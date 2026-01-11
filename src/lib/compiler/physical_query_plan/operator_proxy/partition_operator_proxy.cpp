@@ -15,8 +15,11 @@ const std::string kName = "Partition";
 
 namespace skyrise {
 
-PartitionOperatorProxy::PartitionOperatorProxy(std::shared_ptr<AbstractPartitioningFunction> partitioning_function)
-    : AbstractOperatorProxy(OperatorType::kPartition), partitioning_function_(std::move(partitioning_function)) {}
+PartitionOperatorProxy::PartitionOperatorProxy(std::shared_ptr<AbstractPartitioningFunction> partitioning_function,
+                                               bool sort_within_partition)
+    : AbstractOperatorProxy(OperatorType::kPartition),
+      partitioning_function_(std::move(partitioning_function)),
+      sort_within_partition_(sort_within_partition) {}
 
 const std::string& PartitionOperatorProxy::Name() const { return kName; }
 
@@ -26,7 +29,8 @@ std::string PartitionOperatorProxy::Description(const DescriptionMode mode) cons
   std::stringstream stream;
   stream << AbstractOperatorProxy::Description(mode) << separator;
   // TODO(tobodner): Add PartitioningFunctionType
-  stream << partitioning_function_->PartitionCount() << " partition(s)" << separator << "ColumnIds{";
+  stream << partitioning_function_->PartitionCount() << " partition(s)" << separator << "SortWithinPartition "
+         << sort_within_partition_ << separator << "ColumnIds{";
 
   const auto& partition_column_ids = partitioning_function_->PartitionColumnIds();
 
@@ -49,16 +53,21 @@ const std::set<ColumnId>& PartitionOperatorProxy::PartitionColumnIds() const {
   return partitioning_function_->PartitionColumnIds();
 }
 
+bool PartitionOperatorProxy::SortWithinPartition() const { return sort_within_partition_; }
+
 bool PartitionOperatorProxy::IsPipelineBreaker() const { return false; }
 
 Aws::Utils::Json::JsonValue PartitionOperatorProxy::ToJson() const {
-  return AbstractOperatorProxy::ToJson().WithObject("partitioning_function", partitioning_function_->ToJson());
+  return AbstractOperatorProxy::ToJson()
+      .WithObject("partitioning_function", partitioning_function_->ToJson())
+      .WithBool("sort_within_partition", sort_within_partition_);
 }
 
 std::shared_ptr<AbstractOperatorProxy> PartitionOperatorProxy::FromJson(const Aws::Utils::Json::JsonView& json) {
   const auto partitioning_function = AbstractPartitioningFunction::FromJson(json.GetObject("partitioning_function"));
+  const bool sort_within_partition = json.GetBool("sort_within_partition");
 
-  auto partition_proxy = PartitionOperatorProxy::Make(partitioning_function);
+  auto partition_proxy = PartitionOperatorProxy::Make(partitioning_function, sort_within_partition);
   partition_proxy->SetAttributesFromJson(json);
 
   return partition_proxy;
@@ -78,13 +87,15 @@ size_t PartitionOperatorProxy::ShallowHash() const {
   for (const auto partition_column_id : partitioning_function_->PartitionColumnIds()) {
     boost::hash_combine(hash, partition_column_id);
   }
+  boost::hash_combine(hash, sort_within_partition_);
 
   return hash;
 }
 
 std::shared_ptr<AbstractOperator> PartitionOperatorProxy::CreateOperatorInstanceRecursively() {
   Assert(LeftInput(), "Missing input operator proxy.");
-  return std::make_shared<PartitionOperator>(LeftInput()->GetOrCreateOperatorInstance(), partitioning_function_);
+  return std::make_shared<PartitionOperator>(LeftInput()->GetOrCreateOperatorInstance(), partitioning_function_,
+                                             sort_within_partition_);
 }
 
 }  // namespace skyrise
