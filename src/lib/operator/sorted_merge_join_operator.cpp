@@ -132,7 +132,8 @@ void SortedMergeJoinOperator::FillPositionLists() {
             left_segment_values_index++;
           }
 
-          if (left_segment_values.at(left_segment_values_index) == right_segment_values.at(right_segment_values_index)) {
+          if (left_segment_values.at(left_segment_values_index) ==
+              right_segment_values.at(right_segment_values_index)) {
             for (size_t left_match_index = left_segment_values_first_index_with_same_value;
                  left_match_index <= left_segment_values_index; ++left_match_index) {
               position_lists_[right_chunk_id].emplace_back(RowId(left_chunk_id, left_match_index),
