@@ -24,6 +24,7 @@ enum class OperatorType : uint8_t {
   kPartition,
   kProjection,
   kSort,
+  kSortMergeJoin,
   kUnion,
 };
 

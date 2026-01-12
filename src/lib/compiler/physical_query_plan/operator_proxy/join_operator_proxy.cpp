@@ -3,6 +3,7 @@
 #include <sstream>
 
 #include <boost/container_hash/hash.hpp>
+#include <operator/sorted_merge_join_operator.hpp>
 
 #include "operator/hash_join_operator.hpp"
 #include "operator/join_operator_predicate.hpp"
@@ -17,14 +18,16 @@ const std::string kJsonKeyColumnIdRight = "column_id_right";
 const std::string kJsonKeyPredicateCondition = "predicate_condition";
 
 const std::string kNameHash = "HashJoin";
+const std::string kNameSortMerge = "SortMergeJoin";
 
 }  // namespace
 
 namespace skyrise {
 
 JoinOperatorProxy::JoinOperatorProxy(const JoinMode mode, std::shared_ptr<JoinOperatorPredicate> primary_predicate,
-                                     std::vector<std::shared_ptr<JoinOperatorPredicate>> secondary_predicates)
-    : AbstractOperatorProxy(OperatorType::kHashJoin),
+                                     std::vector<std::shared_ptr<JoinOperatorPredicate>> secondary_predicates,
+                                     OperatorType operator_type)
+    : AbstractOperatorProxy(operator_type),
       mode_(mode),
       primary_predicate_(std::move(primary_predicate)),
       secondary_predicates_(std::move(secondary_predicates)) {}
@@ -33,6 +36,8 @@ const std::string& JoinOperatorProxy::Name() const {
   switch (type_) {
     case OperatorType::kHashJoin:
       return kNameHash;
+    case OperatorType::kSortMergeJoin:
+      return kNameSortMerge;
     default:
       Fail("Undefined join implementation name.");
   }
@@ -98,7 +103,8 @@ size_t JoinOperatorProxy::OutputColumnsCount() const {
 }
 
 void JoinOperatorProxy::SetImplementation(OperatorType operator_type) {
-  Assert(operator_type == OperatorType::kHashJoin, "The given operator type is not a valid join implementation.");
+  Assert(operator_type == OperatorType::kHashJoin || operator_type == OperatorType::kSortMergeJoin,
+         "The given operator type is not a valid join implementation.");
   type_ = operator_type;
 }
 
@@ -126,7 +132,6 @@ Aws::Utils::Json::JsonValue JoinOperatorProxy::ToJson() const {
 std::shared_ptr<AbstractOperatorProxy> JoinOperatorProxy::FromJson(const Aws::Utils::Json::JsonView& json) {
   Assert(json.ValueExists(kJsonKeyJoinMode), "JoinOperatorProxy must have a join mode.");
   const JoinMode join_mode = magic_enum::enum_cast<JoinMode>(json.GetString(kJsonKeyJoinMode)).value();
-
   std::shared_ptr<JoinOperatorPredicate> primary_predicate = nullptr;
 
   if (json.ValueExists(kJsonKeyPrimaryPredicate)) {
@@ -146,16 +151,12 @@ std::shared_ptr<AbstractOperatorProxy> JoinOperatorProxy::FromJson(const Aws::Ut
 
   const auto operator_type = magic_enum::enum_cast<OperatorType>(json.GetString(kJsonKeyOperatorType)).value();
   // NOLINTNEXTLINE(hicpp-multiway-paths-covered)
-  switch (operator_type) {
-    case OperatorType::kHashJoin: {
-      auto join_proxy = JoinOperatorProxy::Make(join_mode, primary_predicate, secondary_predicates);
-      join_proxy->SetImplementation(operator_type);
-      join_proxy->SetAttributesFromJson(json);
-      return join_proxy;
-    }
-    default:
-      Fail("Cannot create join implementation from given operator type.");
-  }
+  Assert(operator_type == OperatorType::kHashJoin || operator_type == OperatorType::kSortMergeJoin,
+         "The given operator type is not a valid join implementation.");
+  auto join_proxy = JoinOperatorProxy::Make(join_mode, primary_predicate, secondary_predicates, operator_type);
+  join_proxy->SetImplementation(operator_type);
+  join_proxy->SetAttributesFromJson(json);
+  return join_proxy;
 }
 
 std::shared_ptr<AbstractOperatorProxy> JoinOperatorProxy::OnDeepCopy(
@@ -183,12 +184,13 @@ std::shared_ptr<AbstractOperatorProxy> JoinOperatorProxy::OnDeepCopy(
     }
   }
 
-  return JoinOperatorProxy::Make(mode_, primary_predicate_copy, secondary_join_predicates_copy, copied_left_input,
-                                 copied_right_input);
+  return JoinOperatorProxy::Make(mode_, primary_predicate_copy, secondary_join_predicates_copy, type_,
+                                 copied_left_input, copied_right_input);
 }
 
 size_t JoinOperatorProxy::ShallowHash() const {
   size_t hash = boost::hash_value(mode_);
+  boost::hash_combine(hash, type_);
   boost::hash_combine(hash, primary_predicate_->Hash());
   for (const auto& secondary_predicate : secondary_predicates_) {
     boost::hash_combine(hash, secondary_predicate->Hash());
@@ -198,13 +200,21 @@ size_t JoinOperatorProxy::ShallowHash() const {
 }
 
 std::shared_ptr<AbstractOperator> JoinOperatorProxy::CreateOperatorInstanceRecursively() {
-  Assert(type_ == OperatorType::kHashJoin, "OperatorType must be HashJoin.");
   Assert(secondary_predicates_.empty(), "Join does not support secondary predicates yet.");
   Assert(LeftInput(), "Join needs a left input.");
   Assert(RightInput(), "Join needs a right input.");
 
-  return std::make_shared<HashJoinOperator>(LeftInput()->GetOrCreateOperatorInstance(),
-                                            RightInput()->GetOrCreateOperatorInstance(), primary_predicate_, mode_);
+  switch (type_) {
+    case OperatorType::kHashJoin:
+      return std::make_shared<HashJoinOperator>(LeftInput()->GetOrCreateOperatorInstance(),
+                                                RightInput()->GetOrCreateOperatorInstance(), primary_predicate_, mode_);
+    case OperatorType::kSortMergeJoin:
+      return std::make_shared<SortedMergeJoinOperator>(LeftInput()->GetOrCreateOperatorInstance(),
+                                                       RightInput()->GetOrCreateOperatorInstance(), primary_predicate_,
+                                                       mode_);
+    default:
+      Fail("Unimplemented join operator.");
+  }
 }
 
 Aws::Utils::Json::JsonValue JoinOperatorProxy::SerializePredicate(
