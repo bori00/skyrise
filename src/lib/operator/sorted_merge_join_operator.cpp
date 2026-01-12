@@ -126,6 +126,12 @@ void SortedMergeJoinOperator::FillPositionLists() {
             break;  // no further matches
           }
 
+          while (left_segment_values_index + 1 < left_segment_values.size() &&
+                 left_segment_values.at(left_segment_values_index + 1) ==
+                     left_segment_values.at(left_segment_values_index)) {
+            left_segment_values_index++;
+          }
+
           if (left_segment_values.at(left_segment_values_index) == right_segment_values[right_segment_values_index]) {
             for (size_t left_match_index = left_segment_values_first_index_with_same_value;
                  left_match_index <= left_segment_values_index; ++left_match_index) {
