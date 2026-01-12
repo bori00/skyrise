@@ -121,8 +121,8 @@ void SortedMergeJoinOperator::FillPositionLists() {
             }
             left_segment_values_index++;
           }
-          if (left_segment_values_index == left_segment_values.size() - 1 &&
-              left_segment_values.at(left_segment_values_index) < right_segment_values[right_segment_values_index]) {
+          if (left_segment_values_index + 1 == left_segment_values.size() &&
+              left_segment_values.at(left_segment_values_index) < right_segment_values.at(right_segment_values_index)) {
             break;  // no further matches
           }
 
@@ -132,7 +132,7 @@ void SortedMergeJoinOperator::FillPositionLists() {
             left_segment_values_index++;
           }
 
-          if (left_segment_values.at(left_segment_values_index) == right_segment_values[right_segment_values_index]) {
+          if (left_segment_values.at(left_segment_values_index) == right_segment_values.at(right_segment_values_index)) {
             for (size_t left_match_index = left_segment_values_first_index_with_same_value;
                  left_match_index <= left_segment_values_index; ++left_match_index) {
               position_lists_[right_chunk_id].emplace_back(RowId(left_chunk_id, left_match_index),
@@ -156,7 +156,7 @@ void SortedMergeJoinOperator::FillPositionLists() {
 
     for (ChunkId right_chunk_id = 0; right_chunk_id < RightInputTable()->ChunkCount(); ++right_chunk_id) {
       dangling_tuples_right_offsets_.emplace_back();
-      for (size_t right_chunk_offset = 0; right_chunk_offset < dangling_tuples_right.back().size();
+      for (size_t right_chunk_offset = 0; right_chunk_offset < dangling_tuples_right[right_chunk_id].size();
            right_chunk_offset++) {
         if (dangling_tuples_right[right_chunk_id][right_chunk_offset]) {
           dangling_tuples_right_offsets_.back().emplace_back(right_chunk_offset);
