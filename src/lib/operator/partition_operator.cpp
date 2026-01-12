@@ -87,6 +87,8 @@ std::shared_ptr<const Table> PartitionOperator::OnExecute(
         ResolveDataType(partition_table->ColumnDataType(partition_column_id), [&](auto data_type) {
           using ColumnDataType = decltype(data_type);
 
+          AWS_LOGSTREAM_INFO(kWorkerTag.c_str(),
+                             "PartitionOperator - sort partition by partition column " << partition_column_id);
           SortOperator::SortImplementation<ColumnDataType> sort_by_column(partition_table, partition_column_id);
           previously_sorted_position_list = sort_by_column.Sort(previously_sorted_position_list);
         });
