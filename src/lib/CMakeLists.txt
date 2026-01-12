@@ -182,6 +182,8 @@ set(
     operator/projection_operator.hpp
     operator/sort_operator.cpp
     operator/sort_operator.hpp
+    operator/sorted_merge_join_operator.hpp
+    operator/sorted_merge_join_operator.cpp
     operator/table_wrapper.hpp
 )
 
