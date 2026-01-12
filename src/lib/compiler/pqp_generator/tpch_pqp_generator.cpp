@@ -385,7 +385,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin) {
     // Partition by custkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count), false);
     partition_operator->SetLeftInput(filter_operator1);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -427,7 +427,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin) {
     // Partition by custkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -471,7 +471,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin) {
     // Partition by orderkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -528,7 +528,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin) {
     // Partition by orderkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -774,7 +774,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Partition by suppkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partitions_count));
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partitions_count), false);
   partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
@@ -818,7 +818,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   import_operator->SetIdentity(left_import_id);
 
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count), false);
   partition_operator->SetLeftInput(import_operator);
 
   const auto export_operator =
@@ -872,7 +872,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Partition by orderkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count), false);
   partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
@@ -933,7 +933,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Partition by orderkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
   partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
@@ -985,7 +985,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Partition by custkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
   partition_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
@@ -1032,7 +1032,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   // Partition by custkey.
   const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
   partition_operator->SetLeftInput(import_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
@@ -1393,7 +1393,6 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline2(
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
   const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
                               (input_objects.size() % stage_1_partitions_per_worker_count);
-  AWS_LOGSTREAM_INFO("pqp_generator", "Worker count pipeline 2 Q12: " << worker_count);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);

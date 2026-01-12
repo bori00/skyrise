@@ -12,7 +12,7 @@ class PartitionOperatorProxy : public EnableMakeForPlanNode<PartitionOperatorPro
                                public AbstractOperatorProxy {
  public:
   explicit PartitionOperatorProxy(std::shared_ptr<AbstractPartitioningFunction> partitioning_function,
-                                  bool sort_within_partition = false);
+                                  bool sort_within_partition);
 
   const std::string& Name() const override;
   std::string Description(const DescriptionMode mode) const override;
