@@ -73,7 +73,6 @@ std::shared_ptr<const Table> PartitionOperator::OnExecute(
 
     auto partition_chunk = std::make_shared<Chunk>(segments);
 
-    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Partition operator - sort " << sort_within_partition_);
     if (sort_within_partition_) {
       std::shared_ptr<Table> partition_table = std::make_shared<Table>(
           input_table->ColumnDefinitions(), std::vector<std::shared_ptr<Chunk>>{partition_chunk});
