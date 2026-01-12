@@ -79,7 +79,7 @@ std::shared_ptr<AbstractOperatorProxy> PartitionOperatorProxy::OnDeepCopy(
   return PartitionOperatorProxy::Make(
       std::make_shared<HashPartitioningFunction>(partitioning_function_->PartitionColumnIds(),
                                                  partitioning_function_->PartitionCount()),
-      copied_left_input);
+      sort_within_partition_, copied_left_input);
 }
 
 size_t PartitionOperatorProxy::ShallowHash() const {
