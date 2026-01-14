@@ -102,6 +102,7 @@ std::shared_ptr<const Table> PartitionOperator::OnExecute(
       auto sorted_partition_chunk = sorted_partition_table->GetChunk(0);
       output_chunks.emplace_back(sorted_partition_chunk);
     } else {
+      AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "PartitionOperator - no sort");
       output_chunks.emplace_back(partition_chunk);
     }
   }
