@@ -26,8 +26,8 @@ class SystemBenchmark : public AbstractBenchmark {
       const std::optional<size_t> worker_memory_size_mb = std::nullopt
       /* The maximum memory assigned to each worker. If empty, then the hardcoded values will be used. */
       ,
-      const Aws::Utils::Json::JsonValue& join_configuration = Aws::Utils::Json::JsonValue()
-      /* The JSON configuration defining the join algorithm for all join operators of the query OR an empty JSON object. */);
+      const Aws::Utils::Json::JsonValue& query_configuration = Aws::Utils::Json::JsonValue()
+      /* The JSON configuration defining the join algorithm and resource allocation for all pipelines. */);
 
   const Aws::String& Name() const override;
 

@@ -27,7 +27,7 @@ class TpchPqpGenerator : public AbstractCompiler {
  private:
   const std::optional<size_t> stage_1_partitions_per_worker_count_;
   const std::optional<size_t> shuffle_partitions_count_;
-  const Aws::Utils::Json::JsonValue join_configuration_;
+  const Aws::Utils::Json::JsonValue query_configuration_;
 
   std::vector<ObjectReference> ListTableObjects(const std::string& table_name, const FileFormat& import_format) const;
 
@@ -42,7 +42,7 @@ class TpchPqpGenerator : public AbstractCompiler {
 
   size_t GetStage1PartitionsPerWorkerCount() const;
 
-  size_t GetShufflePartitionsCount() const;
+  size_t GetWorkerCount(const std::string pipeline_id) const;
 
   JoinAlgorithm GetJoinAlgorithmForPipeline(const std::string pipeline_id) const;
 
@@ -61,16 +61,16 @@ class TpchPqpGenerator : public AbstractCompiler {
 
   // Query 3.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline1(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+      const std::vector<ObjectReference>& input_objects) const;
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline2(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+      const std::vector<ObjectReference>& input_objects) const;
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline3(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+      const std::vector<ObjectReference>& input_objects) const;
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline4(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
+      const std::vector<ObjectReference>& input_objects_left,
       const std::vector<ObjectReference>& input_objects_right) const;
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline5(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects_left,
+      const std::vector<ObjectReference>& input_objects_left,
       const std::vector<ObjectReference>& input_objects_right) const;
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline6(
       const std::vector<ObjectReference>& input_objects) const;
@@ -79,29 +79,29 @@ class TpchPqpGenerator : public AbstractCompiler {
   // Query 5.
   // Region scan + Nation Scan + Join + Supplier Scan + Join.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline1(
-      const size_t partitions_count, const std::vector<ObjectReference>& region_input_objects,
+      const std::vector<ObjectReference>& region_input_objects,
       const std::vector<ObjectReference>& nation_input_objects,
       const std::vector<ObjectReference>& supplier_input_objects) const;
   // Partition lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline2(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+      const std::vector<ObjectReference>& input_objects) const;
   // Join suppliers with lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline3(
-      const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
+      const std::vector<ObjectReference>& supplier_input_objects,
       const std::vector<ObjectReference>& lineitem_input_objects) const;
   // Scan, filter and partition orders.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline4(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+      const std::vector<ObjectReference>& input_objects) const;
   // Join orders with lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline5(
-      const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
+      const std::vector<ObjectReference>& supplier_input_objects,
       const std::vector<ObjectReference>& lineitem_input_objects) const;
   // Scan and partition customers.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline6(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+      const std::vector<ObjectReference>& input_objects) const;
   // Join customers with lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline7(
-      size_t partition_count, const std::vector<ObjectReference>& customer_input_objects,
+      const std::vector<ObjectReference>& customer_input_objects,
       const std::vector<ObjectReference>& lineitem_input_objects) const;
   // Final aggregation.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline8(
@@ -116,32 +116,31 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ6() const;
 
   // Query 12.
-  PipelineData GenerateQ12Pipeline1(const size_t partition_count,
-                                    const std::vector<ObjectReference>& input_objects) const;
-  PipelineData GenerateQ12Pipeline2(const size_t partition_count,
-                                    const std::vector<ObjectReference>& input_objects) const;
-  PipelineData GenerateQ12Pipeline3(const size_t partition_count,
-                                    const std::vector<ObjectReference>& input_objects_left,
+  PipelineData GenerateQ12Pipeline1(const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ12Pipeline2(const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ12Pipeline3(const std::vector<ObjectReference>& input_objects_left,
                                     const std::vector<ObjectReference>& input_objects_right,
                                     const std::vector<ColumnId>& left_column_indices,
                                     const std::vector<ColumnId>& right_column_indices) const;
-  PipelineData GenerateQ12Pipeline4(const size_t partition_count, const std::vector<ObjectReference>& input_objects,
+  PipelineData GenerateQ12Pipeline4(const std::vector<ObjectReference>& input_objects,
                                     const std::vector<ColumnId>& right_column_indices) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ12() const;
 };
 
 class TpchPqpGeneratorConfig : public AbstractCompilerConfig {
  public:
-  TpchPqpGeneratorConfig(const CompilerName& compiler_name, const QueryId& query_id, const ScaleFactor& scale_factor,
-                         const ObjectReference& shuffle_storage_prefix,
-                         const std::optional<size_t> stage_1_partitions_per_worker_count = std::nullopt
-                    /* The number of .parquet or .csv files of the partitioned input table read by a single stage 1 worker. If empty,
-                       then the hardcoded values will be used. */,
-                    const std::optional<size_t> shuffle_partitions_count = std::nullopt
-                    /* The number of partitions applied in any shuffle operation. If empty, then the hardcoded values will be used. */,
-                    const Aws::Utils::Json::JsonValue& join_configuration = Aws::Utils::Json::JsonValue()
-                    /* Contains the join algorithm for all join operators of the query. OR can be an empty json object,
-                     * in which case the partitioned hash join algorithm will be applied everywhere. */);
+  TpchPqpGeneratorConfig(
+      const CompilerName& compiler_name, const QueryId& query_id, const ScaleFactor& scale_factor,
+      const ObjectReference& shuffle_storage_prefix,
+      const std::optional<size_t> stage_1_partitions_per_worker_count = std::nullopt
+      /* The number of .parquet or .csv files of the partitioned input table read by a single stage 1 worker. If empty,
+         then the hardcoded values will be used. */
+      ,
+      const std::optional<size_t> shuffle_partitions_count = std::nullopt
+      /* The number of partitions applied in any shuffle operation. If empty, then the hardcoded values will be used. */
+      ,
+      const Aws::Utils::Json::JsonValue& query_configuration = Aws::Utils::Json::JsonValue()
+      /* Contains the join algorithm and resource allocation for each pipeline of the query. */);
 
   std::shared_ptr<AbstractCompiler> GenerateCompiler() const final;
   bool operator==(const TpchPqpGeneratorConfig& other) const;
@@ -149,7 +148,7 @@ class TpchPqpGeneratorConfig : public AbstractCompilerConfig {
  private:
   const std::optional<size_t> stage_1_partitions_per_worker_count_;
   const std::optional<size_t> shuffle_partitions_count_;
-  const Aws::Utils::Json::JsonValue join_configuration_;
+  const Aws::Utils::Json::JsonValue query_configuration_;
 };
 
 }  // namespace skyrise
