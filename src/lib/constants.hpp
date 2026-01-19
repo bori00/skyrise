@@ -39,7 +39,7 @@ inline constexpr std::string_view kLambdaFunctionHandler = "FunctionHandler";
 /**
  * The name of the AWS IAM role for the Lambda function.
  */
-inline constexpr std::string_view kLambdaFunctionRoleName = "IAM-role-bori00-skyrise";  // "AWSLambda";
+inline constexpr std::string_view kLambdaFunctionRoleName = "Skyrise-Lambda-Role";  // "AWSLambda";
 
 inline const std::string kLambdaFunctionUrlParametersAttribute = "queryStringParameters";
 
@@ -147,17 +147,17 @@ inline const std::string kWorkerResponseExportDataSizeBytesAttribute = "export_d
 /**
  * S3 bucket for benchmark datasets.
  */
-inline const std::string kS3BenchmarkDatasetsBucket = "skyrise-dataset-bucket";
+inline const std::string kS3BenchmarkDatasetsBucket = "skyrise-dataset-bucket-tum";
 
 /**
  * Storage containers for benchmarks.
  */
-inline const std::string kSkyriseBenchmarkContainer = "skyrise-benchmark-container";
+inline const std::string kSkyriseBenchmarkContainer = "skyrise-benchmark-container-tum";
 inline const std::string kS3ExpressBucket = "skyrise-benchmark--use1-az4--x-s3";
 
 /**
  * S3 bucket for CI tests.
  */
-inline const std::string kSkyriseTestBucket = "skyrise-test-bucket";
+inline const std::string kSkyriseTestBucket = "skyrise-test-bucket-tum";
 
 }  // namespace skyrise
