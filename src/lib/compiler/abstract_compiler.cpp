@@ -28,8 +28,8 @@ std::shared_ptr<AbstractCompilerConfig> AbstractCompilerConfig::FromJson(const A
       magic_enum::enum_cast<ScaleFactor>(json.GetString(kCoordinatorRequestScaleFactorAttribute)).value();
   const ObjectReference shuffle_storage =
       ObjectReference::FromJson(json.GetObject(kCoordinatorRequestShuffleStorageAttribute));
-  const Aws::Utils::Json::JsonValue join_configuration =
-      json.GetObject(kCoordinatorRequestJoinConfigurationAttribute).Materialize();
+  const Aws::Utils::Json::JsonValue query_configuration =
+      json.GetObject(kCoordinatorRequestQueryConfigurationAttribute).Materialize();
   const std::optional<size_t> stage_1_partitions_per_worker_count =
       json.KeyExists(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute)
           ? std::optional<size_t>(json.GetInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute))
@@ -49,7 +49,7 @@ std::shared_ptr<AbstractCompilerConfig> AbstractCompilerConfig::FromJson(const A
     case CompilerName::kTpch:
       return std::make_shared<TpchPqpGeneratorConfig>(compiler_name, query_id, scale_factor, shuffle_storage,
                                                       stage_1_partitions_per_worker_count, shuffle_partitions_count,
-                                                      join_configuration);
+                                                      query_configuration);
     case CompilerName::kTpcxbb:
       Fail("PQP generator for TPCx-BB queries is not implemented.");
     default:

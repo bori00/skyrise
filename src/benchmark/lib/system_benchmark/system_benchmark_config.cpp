@@ -9,7 +9,7 @@ SystemBenchmarkConfig::SystemBenchmarkConfig(const CompilerName& compiler_name, 
                                              const std::optional<size_t> stage_1_partitions_per_worker_count,
                                              const std::optional<size_t> shuffle_partitions_count,
                                              const std::optional<size_t> worker_memory_size_mb,
-                                             const Aws::Utils::Json::JsonValue join_configuration)
+                                             const Aws::Utils::Json::JsonValue query_configuration)
     : AbstractBenchmarkConfig(concurrent_instance_count, repetition_count, after_repetition_callbacks),
       compiler_name_(compiler_name),
       query_id_(query_id),
@@ -17,7 +17,7 @@ SystemBenchmarkConfig::SystemBenchmarkConfig(const CompilerName& compiler_name, 
       stage_1_partitions_per_worker_count_(stage_1_partitions_per_worker_count),
       shuffle_partitions_count_(shuffle_partitions_count),
       worker_memory_size_mb_(worker_memory_size_mb),
-      join_configuration_(join_configuration) {}
+      query_configuration_(query_configuration) {}
 
 CompilerName SystemBenchmarkConfig::GetCompilerName() const { return compiler_name_; }
 QueryId SystemBenchmarkConfig::GetQueryId() const { return query_id_; }
@@ -27,6 +27,6 @@ std::optional<size_t> SystemBenchmarkConfig::GetStage1PartitionsPerWorkerCount()
 };
 std::optional<size_t> SystemBenchmarkConfig::GetShufflePartitionsCount() const { return shuffle_partitions_count_; };
 std::optional<size_t> SystemBenchmarkConfig::GetWorkerMemorySizeMb() const { return worker_memory_size_mb_; };
-Aws::Utils::Json::JsonValue SystemBenchmarkConfig::GetJoinConfiguration() const { return join_configuration_; };
+Aws::Utils::Json::JsonValue SystemBenchmarkConfig::GetJoinConfiguration() const { return query_configuration_; };
 
 }  // namespace skyrise

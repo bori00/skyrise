@@ -19,12 +19,23 @@ int main(int argc, char** argv) {
     option_adder("shuffle_partitions_count", "The number of partitions in each shuffle stage of the query.",
                  cxxopts::value<size_t>());
     option_adder("worker_memory_size_mb", "The memory assigned to each worker, in MB.", cxxopts::value<size_t>());
-    option_adder("join_config_filepath",
-                 "The filepath to a json file defining the join algorithm used in each join of the query. "
-                 "If no file is provided, or no algorihtm is specified for a pipeline, then a Partitioned Hash Join "
-                 "will be applied."
-                 "Format: 'pipeline-<id>': 'BroadcastHashJoin' / 'PartitionedHashJoin'",
-                 cxxopts::value<std::string>());
+    option_adder(
+        "query_config_filepath",
+        "The filepath to a json file defining the join algorithm and resource allocation used in each "
+        "pipeline of the query. "
+        "If no file is provided, or no parameter is specified for a pipeline, then "
+        "* for the join algorithm, a a Partitioned Hash Join will be applied"
+        "* for the worker_count, the globally set parameter - shuffle_partitions_count for later-stage queries, nr "
+        "files / stage_1_partitions_per_worker_count for 1st stage queries - will be applied"
+        "Note: for the worker count, pipeline N has a join algorithm which requires partitioning, then its predecessor "
+        "pipelines will partition data data worker_count-ways. Final pipelines cannot have more than 1 worker."
+        "Format: {"
+        "'pipeline-<id>': "
+        "{"
+        "'join_algorithm': 'BroadcastHashJoin' / 'PartitionedHashJoin'"
+        "'worker_count': <int> "
+        "}",
+        cxxopts::value<std::string>());
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
 

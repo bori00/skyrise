@@ -21,9 +21,8 @@ class SystemBenchmarkConfig : public AbstractBenchmarkConfig {
       const std::optional<size_t> worker_memory_size_mb = std::nullopt
       /* The memory assigned to each worker. If empty, then the hardcoded values will be used. */
       ,
-      const Aws::Utils::Json::JsonValue join_configuration = Aws::Utils::Json::JsonValue()
-      /* The JSON configuration defining the join algorithm for all join operators of the query OR an empty JSON object.
-       */
+      const Aws::Utils::Json::JsonValue query_configuration = Aws::Utils::Json::JsonValue()
+      /* The JSON configuration defining the join algorithm and resource allocation for all pipelines. */
   );
 
   CompilerName GetCompilerName() const;
@@ -41,7 +40,7 @@ class SystemBenchmarkConfig : public AbstractBenchmarkConfig {
   const std::optional<int> stage_1_partitions_per_worker_count_;
   const std::optional<int> shuffle_partitions_count_;
   const std::optional<int> worker_memory_size_mb_;
-  const Aws::Utils::Json::JsonValue join_configuration_;
+  const Aws::Utils::Json::JsonValue query_configuration_;
 };
 
 }  // namespace skyrise
