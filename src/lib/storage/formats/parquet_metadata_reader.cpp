@@ -77,7 +77,7 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
       // page offsets, if all columns that exist in a Parquet file are loaded. This is mainly the case for
       // intermediate results that are > 16MB in size. The fix is to load the entire object, i.e., skipping the
       // projection pushdown on S3 level.
-      const int64_t padding = MiBToByte(0);
+      const int64_t padding = MiBToByte(1);
       for (const auto& row_group : parquet_fragment_->row_groups()) {
         auto partition_metadata = parquet_fragment_->metadata()->RowGroup(row_group);
         int64_t start_offset = partition_metadata->file_offset();
