@@ -88,6 +88,7 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
             object_size_);
         Assert(end_offset - start_offset < kS3ReadRequestSizeBytes,
                "Large request should be split into multiple smaller.");
+        AWS_LOGSTREAM_DEBUG("ParquetMetadataReader", "Adding special-case range for row-group, for all-column loader");
         ranges.emplace_back(start_offset, end_offset);
       }
       return ranges;
