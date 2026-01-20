@@ -32,7 +32,7 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   const size_t capacity = std::min(n_bytes, end_offset - offset);
   auto result_buffer = std::make_shared<ByteBuffer>(capacity);
   result_buffer->Resize(capacity);
-  AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Resized result to " << capacity);
+  AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Resized result to " << capacity << " for requested n_bytes=" << n_bytes);
 
   size_t write_position = 0;
 
@@ -77,19 +77,30 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t
   //   }
   //   prev_range = range;
   // }
+  size_t total_size_added = 0;
 
   for (const auto& [range, request_buffer] : request_buffer_) {
+    AWS_LOGSTREAM_INFO("ObjectBuffer-Read", "Reading from offset " << offset << " and n_bytes=" << n_bytes
+                                                                   << " testing range " << range.first << " "
+                                                                   << range.second << " of size "
+                                                                   << request_buffer->Size());
     if (range.first <= offset) {
       if (range.second >= offset + n_bytes) {
         // The request can be served from the current buffer.
         auto byte_buffer = std::make_shared<ByteBuffer>(request_buffer->Data() + offset - range.first, n_bytes);
         byte_buffer->Resize(n_bytes);
+        AWS_LOGSTREAM_INFO("ObjectBuffer-Read", "Serving from one buffer");
         return byte_buffer;
       } else if (range.second >= offset) {
         // The current buffer must be merged with M of the following buffers to serve the request for N bytes.
         merge_buffers.emplace_back(range, request_buffer);
+        total_size_added += request_buffer->Size();
+        AWS_LOGSTREAM_INFO("ObjectBuffer-Read",
+                           "Added to buffers to merge, with total_size_added=" << total_size_added);
       }
     } else if (!merge_buffers.empty() && !(range.first > offset + n_bytes)) {
+      total_size_added += request_buffer->Size();
+      AWS_LOGSTREAM_INFO("ObjectBuffer-Read", "Added to buffers to merge, total_size_added=" << total_size_added);
       merge_buffers.emplace_back(range, request_buffer);
     }
   }
