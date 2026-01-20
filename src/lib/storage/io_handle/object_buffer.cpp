@@ -59,11 +59,11 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t
   // TODO(bori00): remove?
   std::lock_guard<std::mutex> lock(buffer_mutex_);
   std::vector<std::pair<Range, std::shared_ptr<ByteBuffer>>> merge_buffers;
-  //
+
   // std::optional<std::pair<unsigned long, unsigned long>> prev_range;
   // for (const auto& [range, request_buffer] : request_buffer_) {
   //   if (prev_range) {
-  //     Assert(prev_range->second + 1 == range.first, "Invalid range");
+  //     Assert(prev_range->second == range.first, "Invalid range");
   //   }
   //   prev_range = range;
   // }
