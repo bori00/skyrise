@@ -2,6 +2,10 @@
 
 #include <algorithm>
 
+#include <utils/assert.hpp>
+
+#include "../backend/s3_storage.hpp"
+
 namespace skyrise {
 
 ObjectBuffer::ObjectBuffer(const std::map<Range, std::shared_ptr<ByteBuffer>>& request_buffer)
@@ -17,11 +21,14 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
     const size_t n_bytes) {
   // TODO(bori00): calling front on an empty vector would cause a segfault
   if (buffers_to_merge.empty()) {
-    return std::make_shared<ByteBuffer>(0);  // Or throw exception
+    return std::make_shared<ByteBuffer>(0);
   }
+  AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Inside");
 
+  Assert(offset >= buffers_to_merge.front().first.first, "Offset must be >= first start.");
   size_t start_offset = offset - buffers_to_merge.front().first.first;
   const size_t end_offset = buffers_to_merge.back().first.second;
+  Assert(end_offset >= offset, "End_offset must be >= last range offset");
   const size_t capacity = std::min(n_bytes, end_offset - offset);
   auto result_buffer = std::make_shared<ByteBuffer>(capacity);
   result_buffer->Resize(capacity);
@@ -31,9 +38,13 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   for (const auto& [range, buffer] : buffers_to_merge) {
     if (buffer == buffers_to_merge.back().second) {
       // TODO(bori00): change - if there is just one buffer to merge, i.e. first one is the last one
-      std::copy_n(buffer->CharData() + start_offset, capacity - write_position, result_buffer->Data() + write_position);
+      std::copy_n(buffer->CharData(), capacity - write_position, result_buffer->Data() + write_position);
       break;
     }
+    AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Copying from buffer of size "
+                                                 << buffer->Size() << " from offset " << start_offset << " #bytes="
+                                                 << buffer->Size() - start_offset << " to position " << write_position);
+    Assert(start_offset <= buffer->Size(), "Start_offset must be within the source buffer size");
     std::copy_n(buffer->CharData() + start_offset, buffer->Size() - start_offset,
                 result_buffer->Data() + write_position);
     write_position += buffer->Size() - start_offset;
@@ -48,6 +59,15 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t
   // TODO(bori00): remove?
   std::lock_guard<std::mutex> lock(buffer_mutex_);
   std::vector<std::pair<Range, std::shared_ptr<ByteBuffer>>> merge_buffers;
+  //
+  // std::optional<std::pair<unsigned long, unsigned long>> prev_range;
+  // for (const auto& [range, request_buffer] : request_buffer_) {
+  //   if (prev_range) {
+  //     Assert(prev_range->second + 1 == range.first, "Invalid range");
+  //   }
+  //   prev_range = range;
+  // }
+
   for (const auto& [range, request_buffer] : request_buffer_) {
     if (range.first <= offset) {
       if (range.second >= offset + n_bytes) {
