@@ -486,7 +486,8 @@ std::string S3ObjectReader::GetRangeString(size_t first_byte, size_t last_byte) 
   std::stringstream stream;
   stream << "bytes=" << first_byte << "-";
   if (last_byte != kLastByteInFile) {
-    stream << last_byte;
+    AWS_LOGSTREAM_INFO("S3_Storage-GetRangeString", "Request last_byte-1 range");
+    stream << last_byte-1;
   }
   return stream.str();
 }
@@ -516,8 +517,8 @@ std::shared_ptr<std::vector<Aws::S3::Model::GetObjectRequest>> S3ObjectReader::B
     bool read_entire_object = (first_byte == 0 && last_byte == kLastByteInFile);
     std::string range_string;
     if (!read_entire_object) {
-      AWS_LOGSTREAM_INFO("S3_Storage", "Request last_byte-1");
-      range_string = GetRangeString(first_byte, last_byte - 1);
+      AWS_LOGSTREAM_INFO("S3_Storage", "Request last_byte");
+      range_string = GetRangeString(first_byte, last_byte);
     }
     const auto byte_buffer = std::make_shared<ByteBuffer>(last_byte - first_byte);
     requests->push_back(CreateGetObjectRequest(byte_buffer.get(), range_string));
