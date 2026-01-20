@@ -35,30 +35,41 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Resized result to " << capacity << " for requested n_bytes=" << n_bytes);
 
   size_t write_position = 0;
+  size_t bytes_to_write = 0;
 
   for (const auto& [range, buffer] : buffers_to_merge) {
-    if (buffer == buffers_to_merge.back().second) {
-      AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "END Copying from buffer of size "
-                                                   << buffer->Size() << " from offset 0 "
-                                                   << " #bytes=" << capacity - write_position << " to position "
-                                                   << write_position << " with end position at " << capacity);
-      // TODO(bori00): change - if there is just one buffer to merge, i.e. first one is the last one
-      std::copy_n(buffer->CharData(), capacity - write_position, result_buffer->Data() + write_position);
-      break;
-    }
-    AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Copying from buffer of size "
-                                                 << buffer->Size() << " from offset " << start_offset
-                                                 << " #bytes=" << buffer->Size() - start_offset << " to position "
-                                                 << write_position << " with end position at "
-                                                 << write_position + buffer->Size() - start_offset);
-    Assert(start_offset <= buffer->Size(), "Start_offset must be within the source buffer size");
-    Assert(write_position < result_buffer->Size(), "Cannot write beyond the size of the result buffer");
-    Assert(write_position + buffer->Size() - start_offset <= result_buffer->Size(),
-           "Cannot write beyond the size of the result buffer");
-    std::copy_n(buffer->CharData() + start_offset, buffer->Size() - start_offset,
-                result_buffer->Data() + write_position);
-    write_position += buffer->Size() - start_offset;
-    start_offset = 0;
+    Assert(range.second <= end_offset, "The ranges are not properly sorted by end position");
+    start_offset = offset > range.first ? offset - range.first : 0;
+    Assert(start_offset < buffer->Size(), "Start offset must be within buffer");
+    write_position = offset > range.first ? 0 : range.first - offset;
+    bytes_to_write = std::min(buffer->Size() - start_offset, capacity - write_position);
+    Assert(write_position + bytes_to_write <= capacity, "Write end position must be within buffer.");
+    Assert(start_offset + bytes_to_write <= buffer->Size(), "Read end position must be within read buffer.");
+
+    std::copy_n(buffer->CharData() + start_offset, bytes_to_write, result_buffer->Data() + write_position);
+
+    // if (buffer == buffers_to_merge.back().second) {
+    //   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "END Copying from buffer of size "
+    //                                                << buffer->Size() << " from offset 0 "
+    //                                                << " #bytes=" << capacity - write_position << " to position "
+    //                                                << write_position << " with end position at " << capacity);
+    //   // TODO(bori00): change - if there is just one buffer to merge, i.e. first one is the last one
+    //   std::copy_n(buffer->CharData() + start_offset, capacity - write_position, result_buffer->Data() +
+    //   write_position); break;
+    // }
+    // AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Copying from buffer of size "
+    //                                              << buffer->Size() << " from offset " << start_offset
+    //                                              << " #bytes=" << buffer->Size() - start_offset << " to position "
+    //                                              << write_position << " with end position at "
+    //                                              << write_position + buffer->Size() - start_offset);
+    // // Assert(start_offset <= buffer->Size(), "Start_offset must be within the source buffer size");
+    // // Assert(write_position < result_buffer->Size(), "Cannot write beyond the size of the result buffer");
+    // // Assert(write_position + buffer->Size() - start_offset <= result_buffer->Size(),
+    // //        "Cannot write beyond the size of the result buffer");
+    // std::copy_n(buffer->CharData() + start_offset, buffer->Size() - start_offset,
+    //             result_buffer->Data() + write_position);
+    // // write_position += buffer->Size() - start_offset;
+    // // start_offset = 0;
   }
 
   return result_buffer;
