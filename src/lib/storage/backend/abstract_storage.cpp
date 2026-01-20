@@ -23,6 +23,7 @@ std::vector<std::pair<size_t, size_t>> ObjectReader::BuildByteRanges(
     const size_t request_size, const size_t footer_size) {
   if (ranges_optional.has_value()) {
     // Add the footer.
+    AWS_LOGSTREAM_INFO("ObjectReader::BuildByteRanges", "Add footer and return");
     ranges_optional.value().emplace_back(object_size - footer_size, object_size);
     return ranges_optional.value();
   }
