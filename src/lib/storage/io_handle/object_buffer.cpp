@@ -16,6 +16,12 @@ void ObjectBuffer::AddBuffer(const std::pair<Range, std::shared_ptr<ByteBuffer>>
   request_buffer_.emplace(buffer);
 }
 
+//
+// [0 - 1000]
+// [100 - 1500]
+// Read: 500 - 1400
+// --> 500-100 + 500-1400 does not fit
+
 std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
     const std::vector<std::pair<Range, std::shared_ptr<ByteBuffer>>>& buffers_to_merge, const size_t offset,
     const size_t n_bytes) {
@@ -72,6 +78,7 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
     // // start_offset = 0;
   }
 
+  AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Written results to buffer");
   return result_buffer;
 }
 
