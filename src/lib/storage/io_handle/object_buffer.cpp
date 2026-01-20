@@ -15,6 +15,11 @@ void ObjectBuffer::AddBuffer(const std::pair<Range, std::shared_ptr<ByteBuffer>>
 std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
     const std::vector<std::pair<Range, std::shared_ptr<ByteBuffer>>>& buffers_to_merge, const size_t offset,
     const size_t n_bytes) {
+  // TODO(bori00): calling front on an empty vector would cause a segfault
+  if (buffers_to_merge.empty()) {
+    return std::make_shared<ByteBuffer>(0);  // Or throw exception
+  }
+
   size_t start_offset = offset - buffers_to_merge.front().first.first;
   const size_t end_offset = buffers_to_merge.back().first.second;
   const size_t capacity = std::min(n_bytes, end_offset - offset);
@@ -25,7 +30,8 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
 
   for (const auto& [range, buffer] : buffers_to_merge) {
     if (buffer == buffers_to_merge.back().second) {
-      std::copy_n(buffer->CharData(), capacity - write_position, result_buffer->Data() + write_position);
+      // TODO(bori00): change - if there is just one buffer to merge, i.e. first one is the last one
+      std::copy_n(buffer->CharData() + start_offset, capacity - write_position, result_buffer->Data() + write_position);
       break;
     }
     std::copy_n(buffer->CharData() + start_offset, buffer->Size() - start_offset,
@@ -39,6 +45,8 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
 
 // TODO(tobodner): Check if this needs to be thread safe.
 std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t n_bytes) {
+  // TODO(bori00): remove?
+  std::lock_guard<std::mutex> lock(buffer_mutex_);
   std::vector<std::pair<Range, std::shared_ptr<ByteBuffer>>> merge_buffers;
   for (const auto& [range, request_buffer] : request_buffer_) {
     if (range.first <= offset) {
