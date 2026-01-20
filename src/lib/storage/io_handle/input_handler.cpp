@@ -38,7 +38,11 @@ std::shared_ptr<std::queue<LazyReaderConstructor>> InputHandler::CreateBufferedF
     }
   }
 
+  AWS_LOGSTREAM_INFO("InputHandler::CreateBufferedFormatReaders", "Initialised get objects tasks, not yet scheduled.")
+
   execution_context->GetScheduler()->ScheduleAndWaitForTasks(get_object_tasks);
+
+  AWS_LOGSTREAM_INFO("InputHandler::CreateBufferedFormatReaders", "Finished get objects tasks.")
 
   return format_readers;
 }
