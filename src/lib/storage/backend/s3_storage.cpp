@@ -486,8 +486,8 @@ std::string S3ObjectReader::GetRangeString(size_t first_byte, size_t last_byte) 
   std::stringstream stream;
   stream << "bytes=" << first_byte << "-";
   if (last_byte != kLastByteInFile) {
-    AWS_LOGSTREAM_INFO("S3_Storage-GetRangeString", "Request last_byte range");
-    stream << last_byte;
+    AWS_LOGSTREAM_INFO("S3_Storage-GetRangeString", "Request last_byte-1 range");
+    stream << last_byte - 1;
   }
   return stream.str();
 }
