@@ -86,7 +86,7 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
         int64_t start_offset = partition_metadata->file_offset();
         Assert(ranges.empty() || int64_t(ranges.back().second) >= start_offset, "Missing gap in the ranges");
         if (!ranges.empty() && start_offset > 0 && int64_t(ranges.back().second) > start_offset) {
-          ranges.back().second = start_offset - 1;
+          ranges.back().second = start_offset;
           AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds - Special Case",
                              "removed overlap");
         }
