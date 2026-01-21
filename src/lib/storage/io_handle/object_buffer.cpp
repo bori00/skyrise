@@ -38,7 +38,7 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   }
   Assert(end_offset >= offset, "End_offset must be >= last range offset");
   const size_t capacity = std::min(n_bytes, end_offset - offset);
-  auto result_buffer = std::make_shared<ByteBuffer>(capacity);
+  auto result_buffer = std::make_shared<ByteBuffer>(capacity + 128);
   result_buffer->Resize(capacity);
   std::fill(result_buffer->Data(), result_buffer->Data() + capacity, 0);
   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Resized result to " << capacity << " for requested n_bytes=" << n_bytes);
