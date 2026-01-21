@@ -70,6 +70,8 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
   Assert(parquet_fragment_->EnsureCompleteMetadata().ok(), "Unable to extract metadata.");
   std::vector<std::pair<size_t, size_t>> ranges;
 
+  ranges.emplace_back(0, 4);  // try adding hea
+
   if (configuration_.include_columns.has_value()) {
     if (static_cast<size_t>(parquet_fragment_->metadata()->num_columns()) ==
         configuration_.include_columns.value().size()) {
