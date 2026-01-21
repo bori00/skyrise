@@ -32,7 +32,6 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Inside");
 
   Assert(offset >= buffers_to_merge.front().first.first, "Offset must be >= first start.");
-  size_t start_offset = offset - buffers_to_merge.front().first.first;
   const size_t end_offset = buffers_to_merge.back().first.second;
   Assert(end_offset >= offset, "End_offset must be >= last range offset");
   const size_t capacity = std::min(n_bytes, end_offset - offset);
@@ -40,6 +39,7 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   result_buffer->Resize(capacity);
   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Resized result to " << capacity << " for requested n_bytes=" << n_bytes);
 
+  size_t start_offset = 0;
   size_t write_position = 0;
   size_t bytes_to_write = 0;
 
@@ -87,14 +87,6 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t
   // TODO(bori00): remove?
   std::lock_guard<std::mutex> lock(buffer_mutex_);
   std::vector<std::pair<Range, std::shared_ptr<ByteBuffer>>> merge_buffers;
-
-  // std::optional<std::pair<unsigned long, unsigned long>> prev_range;
-  // for (const auto& [range, request_buffer] : request_buffer_) {
-  //   if (prev_range) {
-  //     Assert(prev_range->second == range.first, "Invalid range");
-  //   }
-  //   prev_range = range;
-  // }
   size_t total_size_added = 0;
 
   for (const auto& [range, request_buffer] : request_buffer_) {
@@ -109,14 +101,14 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t
         byte_buffer->Resize(n_bytes);
         AWS_LOGSTREAM_INFO("ObjectBuffer-Read", "Serving from one buffer");
         return byte_buffer;
-      } else if (range.second >= offset) {
+      } else if (range.second > offset) {
         // The current buffer must be merged with M of the following buffers to serve the request for N bytes.
         merge_buffers.emplace_back(range, request_buffer);
         total_size_added += request_buffer->Size();
         AWS_LOGSTREAM_INFO("ObjectBuffer-Read",
                            "Added to buffers to merge, with total_size_added=" << total_size_added);
       }
-    } else if (!merge_buffers.empty() && !(range.first > offset + n_bytes)) {
+    } else if (!merge_buffers.empty() && !(range.first >= offset + n_bytes)) {
       total_size_added += request_buffer->Size();
       AWS_LOGSTREAM_INFO("ObjectBuffer-Read", "Added to buffers to merge, total_size_added=" << total_size_added);
       merge_buffers.emplace_back(range, request_buffer);
