@@ -80,6 +80,7 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
       // intermediate results that are > 16MB in size. The fix is to load the entire object, i.e., skipping the
       // projection pushdown on S3 level.
       const int64_t padding = MiBToByte(1);
+      size_t footer_length = parquet_fragment_.get()->source().Size();
       for (const auto& row_group : parquet_fragment_->row_groups()) {
         auto partition_metadata = parquet_fragment_->metadata()->RowGroup(row_group);
         int64_t start_offset = partition_metadata->file_offset();
@@ -91,12 +92,19 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
             object_size_);
         Assert(end_offset - start_offset < kS3ReadRequestSizeBytes,
                "Large request should be split into multiple smaller.");
+        if (end_offset + footer_length > object_size_) {  //  end_offset >= object_size - footer_length
+          AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds - Special Case",
+                             "Clamping end offset at the start of the footer: " << end_offset << " to "
+                                                                                << object_size_ - footer_length);
+          end_offset = object_size_ - footer_length;
+        }
         ranges.emplace_back(start_offset, end_offset);
         AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds - Special Case",
                            "Added range " << start_offset << " " << end_offset << " for compressed size "
                                           << compressed_size
                                           << " and non-padding end: " << start_offset + compressed_size);
       }
+      ranges.emplace_back(object_size_ - footer_length, object_size_);
       return ranges;
     }
 
