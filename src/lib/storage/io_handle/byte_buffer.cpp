@@ -6,13 +6,15 @@ namespace skyrise {
 
 // TODO(bori00): do we consider *memory to be valid data or just a container?
 ByteBuffer::ByteBuffer(void* memory, size_t length)
-    : external_data_(reinterpret_cast<uint8_t*>(memory)), external_data_capacity_(length), external_data_size_(0) {}
+    : external_data_(reinterpret_cast<uint8_t*>(memory)),
+      external_data_capacity_(length),
+      external_data_size_(length) {}
 
 ByteBuffer::ByteBuffer(size_t initial_capacity)
     : external_data_(nullptr), external_data_capacity_(0), external_data_size_(0) {
   internal_data_.emplace();
   if (initial_capacity > 0) {
-    internal_data_->reserve(initial_capacity);
+    internal_data_->reserve(initial_capacity + 1);
   }
 }
 
@@ -40,7 +42,7 @@ void ByteBuffer::Resize(size_t new_size) {
       UseExternalDataAgain(new_size);
     } else {
       if (new_size > internal_data_->capacity()) {
-        internal_data_->reserve(std::max<size_t>(new_size, internal_data_->capacity() * 2));
+        internal_data_->reserve(std::max<size_t>(new_size + 1, internal_data_->capacity() * 2));
       }
       internal_data_->resize(new_size);
     }

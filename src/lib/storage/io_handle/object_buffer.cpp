@@ -32,11 +32,15 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Inside");
 
   Assert(offset >= buffers_to_merge.front().first.first, "Offset must be >= first start.");
-  const size_t end_offset = buffers_to_merge.back().first.second;
+  size_t end_offset = 0;
+  for (const auto& [range, _] : buffers_to_merge) {
+    end_offset = std::max(end_offset, range.second);
+  }
   Assert(end_offset >= offset, "End_offset must be >= last range offset");
   const size_t capacity = std::min(n_bytes, end_offset - offset);
   auto result_buffer = std::make_shared<ByteBuffer>(capacity);
   result_buffer->Resize(capacity);
+  std::fill(result_buffer->Data(), result_buffer->Data() + capacity, 0);
   AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Resized result to " << capacity << " for requested n_bytes=" << n_bytes);
 
   size_t start_offset = 0;
@@ -44,6 +48,7 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   size_t bytes_to_write = 0;
 
   for (const auto& [range, buffer] : buffers_to_merge) {
+    Assert(buffer->Size() == range.second - range.first, "Buffer size != than its declared range");
     Assert(range.second <= end_offset, "The ranges are not properly sorted by end position");
     start_offset = offset > range.first ? offset - range.first : 0;
     Assert(start_offset < buffer->Size(), "Start offset must be within buffer");
