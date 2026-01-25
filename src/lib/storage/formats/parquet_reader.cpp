@@ -42,8 +42,6 @@ arrow::Result<int64_t> ParquetInputProxy::Read(int64_t nbytes, void* out) {
   }
   AWS_LOGSTREAM_INFO("ParquetInputProxy::Read",
                      "Finished Read 1 - nbytes = " << nbytes << " from offset = " << offset_);
-  // TODO(bori00): remove
-  offset_ += nbytes;
   return arrow::Result(buffer_view->Size());
 }
 
@@ -57,9 +55,9 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> ParquetInputProxy::Read(int64_t nb
   }
   AWS_LOGSTREAM_INFO("ParquetInputProxy::Read",
                      "Finished Read 2 - nbytes = " << nbytes << " from offset = " << offset_);
-  // TODO(bori00): remove
-  offset_ += nbytes;
-  return {std::make_shared<arrow::Buffer>(buffer_view->Data(), nbytes)};
+  ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateBuffer(nbytes));
+  std::memcpy(buffer->mutable_data(), buffer_view->Data(), nbytes);
+  return buffer;
 }
 
 arrow::Status ParquetInputProxy::Seek(int64_t position) {
