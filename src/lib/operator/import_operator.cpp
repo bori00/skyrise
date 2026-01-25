@@ -73,7 +73,6 @@ std::shared_ptr<const Table> ImportOperator::OnExecute(
   const auto input_handler = std::make_shared<InputHandler>();
   const auto reader_factories = input_handler->CreateBufferedFormatReaders(
       operator_execution_context, object_references_, factory_, import_format_, column_ids_);
-  AWS_LOGSTREAM_INFO("ImportOperator", "Constructed reader factories");
 
   std::shared_ptr<const skyrise::TableColumnDefinitions> loaded_table_schema;
   std::shared_ptr<const skyrise::TableColumnDefinitions> base_table_schema;
@@ -89,7 +88,6 @@ std::shared_ptr<const Table> ImportOperator::OnExecute(
   while (!reader_factories->empty()) {
     const auto reader = reader_factories->front()();
     reader_factories->pop();
-    AWS_LOGSTREAM_INFO("ImportOperator", "Handling a reader from the reader factories");
 
     if (!base_table_schema) {
       base_table_schema = reader->GetSchema();
