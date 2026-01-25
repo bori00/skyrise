@@ -48,6 +48,8 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::MergeBuffers(
   size_t bytes_to_write = 0;
 
   for (const auto& [range, buffer] : buffers_to_merge) {
+    AWS_LOGSTREAM_INFO("ObjectBuffer-Merge", "Merging in the range " << range.first << " " << range.second
+                                                                     << " with buffer size " << buffer->Size());
     Assert(buffer->Size() == range.second - range.first, "Buffer size != than its declared range");
     Assert(range.second <= end_offset, "The ranges are not properly sorted by end position");
     start_offset = offset > range.first ? offset - range.first : 0;
