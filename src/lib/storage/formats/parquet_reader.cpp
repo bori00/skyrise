@@ -32,7 +32,6 @@ bool ParquetInputProxy::closed() const { return false; }
 arrow::Status ParquetInputProxy::Close() { Fail("Close is not implemented for ParquetInputProxy"); }
 
 arrow::Result<int64_t> ParquetInputProxy::Read(int64_t nbytes, void* out) {
-  AWS_LOGSTREAM_INFO("ParquetInputProxy::Read", "Try Read 1 - nbytes = " << nbytes << " from offset = " << offset_);
   auto buffer_view = source_->Read(offset_, nbytes);
   std::memcpy(out, buffer_view->Data(), nbytes);
 
@@ -40,28 +39,22 @@ arrow::Result<int64_t> ParquetInputProxy::Read(int64_t nbytes, void* out) {
     return {arrow::Status::IOError("IOError read bytes mismatch expected=" + std::to_string(nbytes) +
                                    " read=" + std::to_string(buffer_view->Size()))};
   }
-  AWS_LOGSTREAM_INFO("ParquetInputProxy::Read",
-                     "Finished Read 1 - nbytes = " << nbytes << " from offset = " << offset_);
   return arrow::Result(buffer_view->Size());
 }
 
 arrow::Result<std::shared_ptr<arrow::Buffer>> ParquetInputProxy::Read(int64_t nbytes) {
-  AWS_LOGSTREAM_INFO("ParquetInputProxy::Read", "Try Read 2 - nbytes = " << nbytes << " from offset = " << offset_);
   auto buffer_view = source_->Read(offset_, nbytes);
 
   if (std::cmp_not_equal(buffer_view->Size(), nbytes)) {
     return {arrow::Status::IOError("IOError read bytes mismatch expected=" + std::to_string(nbytes) +
                                    " read=" + std::to_string(buffer_view->Size()))};
   }
-  AWS_LOGSTREAM_INFO("ParquetInputProxy::Read",
-                     "Finished Read 2 - nbytes = " << nbytes << " from offset = " << offset_);
   ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateBuffer(nbytes));
   std::memcpy(buffer->mutable_data(), buffer_view->Data(), nbytes);
   return buffer;
 }
 
 arrow::Status ParquetInputProxy::Seek(int64_t position) {
-  AWS_LOGSTREAM_INFO("ParquetInputProxy::Seek", "Seek to " << position);
   offset_ = position;
   return arrow::Status::OK();
 }
@@ -71,22 +64,16 @@ arrow::Result<int64_t> ParquetInputProxy::GetSize() { return {object_size_}; }
 ParquetFormatReader::ParquetFormatReader(std::shared_ptr<ObjectBuffer> source, size_t object_size,
                                          Configuration configuration)
     : configuration_(std::move(configuration)) {
-  AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader", "Starting " << object_size)
   auto input_stream = std::make_shared<ParquetInputProxy>(std::move(source), object_size);
-  AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader", "Input stream initialised " << object_size)
   try {
     auto file_source = arrow::dataset::FileSource(input_stream);
     auto parquet_format = std::make_shared<arrow::dataset::ParquetFileFormat>();
     std::shared_ptr<arrow::dataset::ParquetFileFragment> parquet_fragment =
         std::static_pointer_cast<arrow::dataset::ParquetFileFragment>(
             parquet_format->MakeFragment(file_source).ValueOrDie());
-    AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader",
-                       "Parquet fragment initialised for object of size " << object_size)
 
     // Read only specific partitions if row group ids are provided.
     if (configuration_.row_group_ids.has_value()) {
-      AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader",
-                         "Reading specific partitions for object of size " << object_size)
       auto row_group_subset = parquet_fragment->Subset(configuration_.row_group_ids.value());
       Assert(row_group_subset.ok(), row_group_subset.status().ToString());
       parquet_fragment = std::static_pointer_cast<arrow::dataset::ParquetFileFragment>(row_group_subset.ValueOrDie());
@@ -98,8 +85,6 @@ ParquetFormatReader::ParquetFormatReader(std::shared_ptr<ObjectBuffer> source, s
 
     auto maybe_parquet_schema = parquet_format->Inspect(file_source);
     Assert(maybe_parquet_schema.ok(), maybe_parquet_schema.status().ToString());
-    AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader",
-                       "Parquet schema ok for object of size " << object_size)
     auto parquet_schema = maybe_parquet_schema.ValueOrDie();
 
     auto scan_builder =
@@ -125,16 +110,9 @@ ParquetFormatReader::ParquetFormatReader(std::shared_ptr<ObjectBuffer> source, s
     }
 
     scanner_ = scan_builder->Finish().ValueOrDie();
-    AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader",
-                       "Initialised scanner for object of size " << object_size);
     batch_iterator_ = scanner_->ScanBatches().ValueOrDie();
-    AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader",
-                       "Initialised batches for object of size " << object_size);
 
     ExtractSchema(parquet_schema);
-
-    AWS_LOGSTREAM_INFO("ParquetFormatReader::ParquetFormatReader",
-                       "ExtractSchema done for object of size " << object_size);
 
     if (configuration_.expected_schema) {
       if (*schema_ != *configuration_.expected_schema) {

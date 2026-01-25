@@ -78,29 +78,20 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
       // intermediate results that are > 16MB in size. The fix is to load the entire object, i.e., skipping the
       // projection pushdown on S3 level.
       const int64_t padding = MiBToByte(1);
-      // size_t footer_length = parquet_fragment_.get()->source().Size();
       for (const auto& row_group : parquet_fragment_->row_groups()) {
         auto partition_metadata = parquet_fragment_->metadata()->RowGroup(row_group);
         int64_t start_offset = partition_metadata->file_offset();
-        // Assert(ranges.empty() || int64_t(ranges.back().second) >= start_offset, "Missing gap in the ranges");
         if (!ranges.empty() && start_offset > 0 && int64_t(ranges.back().second) > start_offset) {
           ranges.back().second = start_offset;
-          AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds - Special Case",
-                             "removed overlap");
         }
         Assert(start_offset > 0, "Invalid start offset.");
         int64_t compressed_size = partition_metadata->total_compressed_size();
-        // Assert(compressed_size != 0, "Compressed size should not be 0");
         int64_t end_offset = std::min<int64_t>(
             start_offset + padding + (compressed_size == 0 ? partition_metadata->total_byte_size() : compressed_size),
             object_size_);
         Assert(end_offset - start_offset < kS3ReadRequestSizeBytes,
                "Large request should be split into multiple smaller.");
         ranges.emplace_back(start_offset, end_offset);
-        AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds - Special Case",
-                           "Added range " << start_offset << " " << end_offset << " for compressed size "
-                                          << compressed_size
-                                          << " and non-padding end: " << start_offset + compressed_size);
       }
       return ranges;
     }
