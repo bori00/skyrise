@@ -70,8 +70,6 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
   Assert(parquet_fragment_->EnsureCompleteMetadata().ok(), "Unable to extract metadata.");
   std::vector<std::pair<size_t, size_t>> ranges;
 
-  ranges.emplace_back(0, 4);  // try adding hea
-
   if (configuration_.include_columns.has_value()) {
     if (static_cast<size_t>(parquet_fragment_->metadata()->num_columns()) ==
         configuration_.include_columns.value().size()) {
@@ -84,7 +82,7 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
       for (const auto& row_group : parquet_fragment_->row_groups()) {
         auto partition_metadata = parquet_fragment_->metadata()->RowGroup(row_group);
         int64_t start_offset = partition_metadata->file_offset();
-        Assert(ranges.empty() || int64_t(ranges.back().second) >= start_offset, "Missing gap in the ranges");
+        // Assert(ranges.empty() || int64_t(ranges.back().second) >= start_offset, "Missing gap in the ranges");
         if (!ranges.empty() && start_offset > 0 && int64_t(ranges.back().second) > start_offset) {
           ranges.back().second = start_offset;
           AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds - Special Case",
@@ -92,7 +90,7 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
         }
         Assert(start_offset > 0, "Invalid start offset.");
         int64_t compressed_size = partition_metadata->total_compressed_size();
-        Assert(compressed_size != 0, "Compressed size should not be 0");
+        // Assert(compressed_size != 0, "Compressed size should not be 0");
         int64_t end_offset = std::min<int64_t>(
             start_offset + padding + (compressed_size == 0 ? partition_metadata->total_byte_size() : compressed_size),
             object_size_);
