@@ -68,17 +68,23 @@ void AbstractTask::Execute() {
   // We need to make sure that data written by the scheduling thread is visible in the thread executing the task.
   std::atomic_thread_fence(std::memory_order_seq_cst);
 
-  OnExecute();
+  try {
+    OnExecute();
+  } catch (detail::AssertionFailedException e) {
+    exception_ptr_ = std::current_exception();  // Capture the exception
+  }
 
-  std::unique_lock<std::mutex> lock(done_condition_variable_mutex_);
-  const bool success_done = TryTransitionTo(TaskState::kDone);
-  Assert(success_done, "Expected successful transition to TaskState::Done.");
-  lock.unlock();
+  {
+    std::unique_lock<std::mutex> lock(done_condition_variable_mutex_);
+    const bool success_done = TryTransitionTo(TaskState::kDone);
+    Assert(success_done, "Expected successful transition to TaskState::Done.");
+  }
 
   if (done_callback_) {
     done_callback_();
   }
 
+  // Notify everyone waiting in Join() that the state is now kDone
   done_condition_variable_.notify_all();
 }
 

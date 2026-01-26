@@ -129,6 +129,28 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
 
   } catch (const std::exception& exception) {
     AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), exception.what());
+    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Replying with failure to the coordinator.");
+
+    const size_t runtime_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - runtime_start).count();
+
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    const char* memory_size_mb_string = std::getenv("AWS_LAMBDA_FUNCTION_MEMORY_SIZE");
+    const size_t memory_size_mb =
+        memory_size_mb_string != nullptr ? std::stoull(memory_size_mb_string, nullptr, 10) : 0;
+
+    Aws::Utils::Json::JsonValue response;
+    std::string response_string = "Worker failed " + std::string(exception.what());
+    response.WithInteger(kResponseIsSuccessAttribute, 0)
+        .WithString(kResponseMessageAttribute, response_string)
+        .WithString(kWorkerResponseIdAttribute, worker_id)
+        .WithString("pipeline_id", pipeline_id)
+        .WithInteger(kWorkerResponseRuntimeMsAttribute, runtime_ms)
+        .WithInteger(kWorkerResponseMemorySizeMbAttribute, memory_size_mb)
+        .WithInt64(kWorkerResponseImportDataSizeBytesAttribute, import_data_size_bytes)
+        .WithInt64(kWorkerResponseExportDataSizeBytesAttribute, export_data_size_bytes);
+
+    return aws::lambda_runtime::invocation_response::success(response.View().WriteCompact(), "application/json");
   }
 
   const size_t runtime_ms =
