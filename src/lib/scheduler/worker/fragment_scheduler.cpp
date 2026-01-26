@@ -32,6 +32,9 @@ void FragmentScheduler::WaitForTasks(const std::vector<std::shared_ptr<AbstractT
   } else {
     for (const auto& task : tasks) {
       task->Join();
+      if (task->HasException()) {
+        task->RethrowException();
+      }
     }
   }
 }

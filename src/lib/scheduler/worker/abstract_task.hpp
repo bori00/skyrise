@@ -137,6 +137,11 @@ class AbstractTask : public std::enable_shared_from_this<AbstractTask> {
 
   TaskState State() const;
 
+  bool HasException() const { return static_cast<bool>(exception_ptr_); }
+  void RethrowException() const {
+    if (exception_ptr_) std::rethrow_exception(exception_ptr_);
+  }
+
  protected:
   virtual void OnExecute() = 0;
 
@@ -166,6 +171,8 @@ class AbstractTask : public std::enable_shared_from_this<AbstractTask> {
 
   // Purely for debugging purposes, in order to be able to identify tasks after they have been scheduled.
   std::string description_;
+
+  std::exception_ptr exception_ptr_ = nullptr;
 };
 
 }  // namespace skyrise

@@ -82,6 +82,9 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
   size_t export_data_size_bytes = 0;
   size_t import_data_size_bytes = 0;
 
+  std::string response_string = "Worker executed successfully.";
+  int success = 1;
+
   try {
     const auto client = std::make_shared<BaseClient>();
     const auto fragment_definitions = request.GetArray(kWorkerRequestFragmentDefinitionsAttribute);
@@ -129,6 +132,10 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
 
   } catch (const std::exception& exception) {
     AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), exception.what());
+    AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Replying with failure to the coordinator.");
+
+    response_string = "Worker failed " + std::string(exception.what());
+    success = 0;
   }
 
   const size_t runtime_ms =
@@ -139,8 +146,8 @@ aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
   const size_t memory_size_mb = memory_size_mb_string != nullptr ? std::stoull(memory_size_mb_string, nullptr, 10) : 0;
 
   Aws::Utils::Json::JsonValue response;
-  response.WithInteger(kResponseIsSuccessAttribute, 1)
-      .WithString(kResponseMessageAttribute, "Worker executed successfully.")
+  response.WithInteger(kResponseIsSuccessAttribute, success)
+      .WithString(kResponseMessageAttribute, response_string)
       .WithString(kWorkerResponseIdAttribute, worker_id)
       // TODO: extract constants.
       .WithString("pipeline_id", pipeline_id)
