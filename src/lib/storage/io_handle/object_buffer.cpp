@@ -60,7 +60,6 @@ std::shared_ptr<ByteBuffer> ObjectBuffer::Read(const size_t offset, const size_t
       if (range.second >= offset + n_bytes) {
         // The request can be served from the current buffer.
         auto byte_buffer = std::make_shared<ByteBuffer>(request_buffer->Data() + offset - range.first, n_bytes);
-        byte_buffer->Resize(n_bytes);
         return byte_buffer;
       } else if (range.second > offset) {
         // The current buffer must be merged with M of the following buffers to serve the request for N bytes.
