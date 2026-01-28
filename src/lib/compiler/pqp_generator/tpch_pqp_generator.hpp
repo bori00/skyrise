@@ -78,34 +78,36 @@ class TpchPqpGenerator : public AbstractCompiler {
 
   // Query 5.
   // Region scan + Nation Scan + Join + Supplier Scan + Join.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline1(
-      const size_t partitions_count, const std::vector<ObjectReference>& region_input_objects,
-      const std::vector<ObjectReference>& nation_input_objects,
-      const std::vector<ObjectReference>& supplier_input_objects) const;
+  PipelineData GenerateQ5Pipeline1(const size_t partitions_count,
+                                   const std::vector<ObjectReference>& region_input_objects,
+                                   const std::vector<ObjectReference>& nation_input_objects,
+                                   const std::vector<ObjectReference>& supplier_input_objects) const;
   // Partition lineitems.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline2(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ5Pipeline2(const size_t partition_count,
+                                   const std::vector<ObjectReference>& input_objects) const;
   // Join suppliers with lineitems.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline3(
-      const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
-      const std::vector<ObjectReference>& lineitem_input_objects) const;
+  PipelineData GenerateQ5Pipeline3(const size_t partition_count,
+                                   const std::vector<ObjectReference>& supplier_input_objects,
+                                   const std::vector<ObjectReference>& lineitem_input_objects,
+                                   const std::vector<ColumnId>& supplier_column_indices,
+                                   const std::vector<ColumnId>& lineitem_column_indices) const;
   // Scan, filter and partition orders.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline4(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ5Pipeline4(const size_t partition_count,
+                                   const std::vector<ObjectReference>& input_objects) const;
   // Join orders with lineitems.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline5(
-      const size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
-      const std::vector<ObjectReference>& lineitem_input_objects) const;
+  PipelineData GenerateQ5Pipeline5(const size_t partition_count,
+                                   const std::vector<ObjectReference>& supplier_input_objects,
+                                   const std::vector<ObjectReference>& lineitem_input_objects) const;
   // Scan and partition customers.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline6(
-      const size_t partition_count, const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ5Pipeline6(const size_t partition_count,
+                                   const std::vector<ObjectReference>& input_objects) const;
   // Join customers with lineitems.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline7(
-      size_t partition_count, const std::vector<ObjectReference>& customer_input_objects,
-      const std::vector<ObjectReference>& lineitem_input_objects) const;
+  PipelineData GenerateQ5Pipeline7(size_t partition_count, const std::vector<ObjectReference>& customer_input_objects,
+                                   const std::vector<ObjectReference>& lineitem_input_objects,
+                                   const std::vector<ColumnId>& customer_column_indices,
+                                   const std::vector<ColumnId>& lineitem_column_indices) const;
   // Final aggregation.
-  std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ5Pipeline8(
-      const std::vector<ObjectReference>& input_objects) const;
+  PipelineData GenerateQ5Pipeline8(const std::vector<ObjectReference>& input_objects) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ5() const;
 
   // Query 6.
