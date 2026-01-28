@@ -799,7 +799,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       break;
     }
     case JoinAlgorithm::kBroadcastHashJoin:
-      export_operator->SetLeftInput(join_operator2);
+      export_operator->SetLeftInput(projection_operator);
   }
 
   const std::string pipeline_id = "pipeline-1";
