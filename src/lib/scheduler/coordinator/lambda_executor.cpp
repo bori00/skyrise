@@ -143,19 +143,15 @@ void LambdaExecutor::CollectSqsMessages(
             processed_worker_ids.insert(responder_worker_id);
           }
         }
-      } else {
-        // TODO(fbori): maybe we shouldn't wait anymore after the 3rd failure?
-        AWS_LOGSTREAM_WARN(kCoordinatorTag.c_str(), "Worker " << response_view.GetString(kWorkerResponseIdAttribute)
-                                                              << " failed. Waiting for another execution.");
       }
 
       if (!is_duplicate) {
         // We set the result to successful, as we received a message.
         Assert(pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
-        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Message Processed - SQS response handler of pipeline "
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Worker Message Processed " << response_view.GetString(kWorkerResponseIdAttribute)  << "'s response - SQS response handler of pipeline "
                                                         << pipeline_id << " received response of "
-                                                        << response_view.GetString("pipeline_id") << " from worker "
-                                                        << response_view.GetString(kWorkerResponseIdAttribute));
+                                                        << response_view.GetString("pipeline_id") <<
+                                                        "success=" << (response_view.GetInteger(kResponseIsSuccessAttribute) != 0));
         const auto fragment_result =
             std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
                 .pipeline_id = pipeline_id,
@@ -183,7 +179,7 @@ void LambdaExecutor::CollectSqsMessages(
                             "Failed to remove SQS message " << delete_message_outcome.GetError().GetMessage());
       }
 
-      if (is_success && !is_duplicate) {
+      if (!is_duplicate) {
         processed_count.store(processed_count.load() + 1);
       }
     }
