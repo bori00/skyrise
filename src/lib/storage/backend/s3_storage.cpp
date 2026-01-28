@@ -486,7 +486,7 @@ std::string S3ObjectReader::GetRangeString(size_t first_byte, size_t last_byte) 
   std::stringstream stream;
   stream << "bytes=" << first_byte << "-";
   if (last_byte != kLastByteInFile) {
-    stream << last_byte;
+    stream << last_byte - 1;
   }
   return stream.str();
 }

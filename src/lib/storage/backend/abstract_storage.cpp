@@ -38,12 +38,12 @@ std::vector<std::pair<size_t, size_t>> ObjectReader::BuildByteRanges(
 
   for (size_t i = 0; i < number_requests; ++i) {
     const size_t start = i * request_size;
-    ranges.emplace_back(start, start + request_size - 1);
+    ranges.emplace_back(start, start + request_size);
   }
 
   // Add the final request.
   if ((number_requests * request_size) < object_size) {
-    ranges.emplace_back(ranges.back().second + 1, object_size);
+    ranges.emplace_back(ranges.back().second, object_size);
     number_requests++;
   }
 
