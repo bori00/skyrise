@@ -49,7 +49,9 @@ arrow::Result<std::shared_ptr<arrow::Buffer>> ParquetInputProxy::Read(int64_t nb
     return {arrow::Status::IOError("IOError read bytes mismatch expected=" + std::to_string(nbytes) +
                                    " read=" + std::to_string(buffer_view->Size()))};
   }
-  return {std::make_shared<arrow::Buffer>(buffer_view->Data(), nbytes)};
+  ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateBuffer(nbytes));
+  std::memcpy(buffer->mutable_data(), buffer_view->Data(), nbytes);
+  return buffer;
 }
 
 arrow::Status ParquetInputProxy::Seek(int64_t position) {

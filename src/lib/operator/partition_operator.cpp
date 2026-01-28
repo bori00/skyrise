@@ -3,6 +3,7 @@
 #include <boost/container_hash/hash.hpp>
 
 #include "all_type_variant.hpp"
+#include "sort_operator.hpp"
 #include "storage/table/chunk.hpp"
 #include "storage/table/value_segment.hpp"
 #include "utils/assert.hpp"
@@ -16,9 +17,11 @@ const std::string kName = "Partition";
 namespace skyrise {
 
 PartitionOperator::PartitionOperator(std::shared_ptr<AbstractOperator> input,
-                                     std::shared_ptr<AbstractPartitioningFunction> partitioning_function)
+                                     std::shared_ptr<AbstractPartitioningFunction> partitioning_function,
+                                     bool sort_within_partition)
     : AbstractOperator(OperatorType::kPartition, std::move(input), nullptr),
-      partitioning_function_(std::move(partitioning_function)) {}
+      partitioning_function_(std::move(partitioning_function)),
+      sort_within_partition_(sort_within_partition) {}
 
 const std::string& PartitionOperator::Name() const { return kName; }
 
@@ -68,7 +71,40 @@ std::shared_ptr<const Table> PartitionOperator::OnExecute(
       });
     }
 
-    output_chunks.emplace_back(std::make_shared<Chunk>(segments));
+    auto partition_chunk = std::make_shared<Chunk>(segments);
+
+    if (sort_within_partition_) {
+      std::shared_ptr<Table> partition_table = std::make_shared<Table>(
+          input_table->ColumnDefinitions(), std::vector<std::shared_ptr<Chunk>>{partition_chunk});
+
+      // sort the chunk by each partitioning column
+      RowIdPositionList previously_sorted_position_list;
+      for (const auto& partition_column_id : partitioning_function_->PartitionColumnIds()) {
+        Assert(partition_column_id < partition_table->GetColumnCount(), "Column to partition is out of range.");
+        Assert(!partition_table->ColumnDefinitions()[partition_column_id].nullable,
+               "Nullable columns are not supported.");
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        ResolveDataType(partition_table->ColumnDataType(partition_column_id), [&](auto data_type) {
+          using ColumnDataType = decltype(data_type);
+
+          AWS_LOGSTREAM_INFO(kWorkerTag.c_str(),
+                             "PartitionOperator - sort partition by partition column " << partition_column_id);
+          SortOperator::SortImplementation<ColumnDataType> sort_by_column(partition_table, partition_column_id);
+          previously_sorted_position_list = sort_by_column.Sort(previously_sorted_position_list);
+        });
+      }
+
+      auto fragment_scheduler = std::make_shared<FragmentScheduler>();
+      auto sorted_partition_table = SortOperator::MaterializeOutputTable(
+          partition_table, previously_sorted_position_list, fragment_scheduler, true);
+      Assert(sorted_partition_table->ChunkCount() == 1,
+             "The sorted partition table must still contain just one chunk.");
+      auto sorted_partition_chunk = sorted_partition_table->GetChunk(0);
+      output_chunks.emplace_back(sorted_partition_chunk);
+    } else {
+      AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "PartitionOperator - no sort");
+      output_chunks.emplace_back(partition_chunk);
+    }
   }
 
   return std::make_shared<Table>(LeftInputTable()->ColumnDefinitions(), std::move(output_chunks));

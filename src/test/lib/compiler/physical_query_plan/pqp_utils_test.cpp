@@ -115,7 +115,7 @@ TEST_F(PqpUtilsTest, PqpFindLeaves) {
   std::vector<std::shared_ptr<JoinOperatorPredicate>> secondary_predicates;
   // clang-format off
   auto pqp =
-  JoinOperatorProxy::Make(JoinMode::kInner, JoinOperatorPredicate_(Equals_(a_a_, b_x_)), secondary_predicates,
+  JoinOperatorProxy::Make(JoinMode::kInner, JoinOperatorPredicate_(Equals_(a_a_, b_x_)), secondary_predicates, OperatorType::kHashJoin,
     UnionOperatorProxy::Make(SetOperationMode::kAll,
       FilterOperatorProxy::Make(GreaterThan_(a_a_, 700),
         import_proxy_a_),
@@ -135,7 +135,7 @@ TEST_F(PqpUtilsTest, PrefixOperatorProxyIdentities) {
   std::vector<std::shared_ptr<JoinOperatorPredicate>> secondary_predicates;
   // clang-format off
   auto pqp =
-  JoinOperatorProxy::Make(JoinMode::kInner, JoinOperatorPredicate_(Equals_(a_a_, b_x_)), secondary_predicates,
+  JoinOperatorProxy::Make(JoinMode::kInner, JoinOperatorPredicate_(Equals_(a_a_, b_x_)), secondary_predicates, OperatorType::kHashJoin,
     UnionOperatorProxy::Make(SetOperationMode::kAll,
       FilterOperatorProxy::Make(GreaterThan_(a_a_, 700),
         import_proxy_a_),

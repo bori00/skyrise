@@ -382,10 +382,12 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin) {
+  if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin ||
+      GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kSortMergeJoin) {
     // Partition by custkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count),
+        /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kSortMergeJoin);
     partition_operator->SetLeftInput(filter_operator1);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -424,10 +426,12 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin) {
+  if (GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kPartitionedHashJoin ||
+      GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kSortMergeJoin) {
     // Partition by custkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+        /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-4") == JoinAlgorithm::kSortMergeJoin);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -468,10 +472,12 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin) {
+  if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin ||
+      GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kSortMergeJoin) {
     // Partition by orderkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+        /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kSortMergeJoin);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -494,6 +500,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // NOLINTNEXTLINE(google-build-using-namespace)
   using namespace expression_functional;
 
+  const std::string pipeline_id = "pipeline-4";
+
   // The in-memory hashtable is built from the left-input, so we set the left input to be the smaller one, namely the
   // filtered customers. Table: customers.
   const std::string left_import_id = "left_import";
@@ -510,8 +518,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 0, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(
+      JoinMode::kInner, predicate, empty_secondary_predicates,
+      GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kSortMergeJoin ? OperatorType::kSortMergeJoin
+                                                                                : OperatorType::kHashJoin);
   join_operator->SetLeftInput(import_operator_left);
   join_operator->SetRightInput(import_operator_right);
 
@@ -525,17 +535,17 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
 
   auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin) {
+  if (GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kPartitionedHashJoin ||
+      GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kSortMergeJoin) {
     // Partition by orderkey.
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+        /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kSortMergeJoin);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
     export_operator->SetLeftInput(projection_operator);
   }
-
-  const std::string pipeline_id = "pipeline-4";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline4 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
@@ -573,6 +583,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // NOLINTNEXTLINE(google-build-using-namespace)
   using namespace expression_functional;
 
+  const std::string pipeline_id = "pipeline-5";
+
   // The in-memory hashtable is built from the left-input, so we set the left input to be the smaller one, namely the
   // filtered orders from pipeline 4. Column 0: orderkey. Column 1: orderdate. Column 2: shippriority.
   const std::string left_import_id = "left_import";
@@ -590,8 +602,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 0, .column_id_right = 0, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(
+      JoinMode::kInner, predicate, empty_secondary_predicates,
+      GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kSortMergeJoin ? OperatorType::kSortMergeJoin
+                                                                                : OperatorType::kHashJoin);
   join_operator->SetLeftInput(import_operator_left);
   join_operator->SetRightInput(import_operator_right);
 
@@ -627,7 +641,6 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
   export_operator->SetLeftInput(limit_operator);
 
-  const std::string pipeline_id = "pipeline-5";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
@@ -745,8 +758,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 0, .column_id_right = 2, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate,
+                                                                 empty_secondary_predicates, OperatorType::kHashJoin);
   join_operator->SetLeftInput(region_filter_operator1);
   join_operator->SetRightInput(nation_import_operator);
 
@@ -761,8 +774,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   // Left: Column 0: regionkey. Column 1: r_name. Column 2: n_nationkey. Column 3: n_name. Column 4: n_regionkey.
   const auto predicate2 = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 2, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator2 =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate2, empty_secondary_predicates);
+  const auto join_operator2 = std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate2,
+                                                                  empty_secondary_predicates, OperatorType::kHashJoin);
   join_operator2->SetLeftInput(join_operator);
   join_operator2->SetRightInput(supplier_import_operator);
 
@@ -772,14 +785,22 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator2);
 
-  // Partition by suppkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partitions_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  switch (GetJoinAlgorithmForPipeline("pipeline-3")) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+    case JoinAlgorithm::kSortMergeJoin: {
+      // Partition by suppkey.
+      const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+          std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partitions_count),
+          GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kSortMergeJoin);
+      partition_operator->SetLeftInput(projection_operator);
+      export_operator->SetLeftInput(partition_operator);
+      break;
+    }
+    case JoinAlgorithm::kBroadcastHashJoin:
+      export_operator->SetLeftInput(projection_operator);
+  }
 
   const std::string pipeline_id = "pipeline-1";
   const size_t worker_count = 1;
@@ -817,14 +838,22 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 2, 5, 6});
   import_operator->SetIdentity(left_import_id);
 
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
-  partition_operator->SetLeftInput(import_operator);
-
-  const auto export_operator =
+  std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-
-  export_operator->SetLeftInput(partition_operator);
+  switch (GetJoinAlgorithmForPipeline("pipeline-3")) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+    case JoinAlgorithm::kSortMergeJoin: {
+      // Partition by suppkey.
+      const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+          std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count),
+          GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kSortMergeJoin);
+      partition_operator->SetLeftInput(import_operator);
+      export_operator->SetLeftInput(partition_operator);
+      break;
+    }
+    case JoinAlgorithm::kBroadcastHashJoin:
+      export_operator->SetLeftInput(import_operator);
+  }
 
   const std::string pipeline_id = "pipeline-2";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -841,6 +870,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     size_t partition_count, const std::vector<ObjectReference>& supplier_input_objects,
     const std::vector<ObjectReference>& lineitem_input_objects) const {
   using namespace expression_functional;
+  const std::string pipeline_id = "pipeline-3";
   const std::string supplier_import_id = "left_import";
   // From pipeline 1. Column 0: n_name. Column 1: s_suppkey. Column 2: s_nationkey.
   const auto supplier_import_operator =
@@ -857,8 +887,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 1, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(
+      JoinMode::kInner, predicate, empty_secondary_predicates,
+      GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kSortMergeJoin ? OperatorType::kSortMergeJoin
+                                                                                : OperatorType::kHashJoin);
   join_operator->SetLeftInput(supplier_import_operator);
   join_operator->SetRightInput(lineitem_import_operator);
 
@@ -870,16 +902,23 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
-  // Partition by orderkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  switch (GetJoinAlgorithmForPipeline("pipeline-5")) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+    case JoinAlgorithm::kSortMergeJoin: {
+      // Partition by orderkey.
+      const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+          std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{1}, partition_count),
+          /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kSortMergeJoin);
+      partition_operator->SetLeftInput(projection_operator);
+      export_operator->SetLeftInput(partition_operator);
+      break;
+    }
+    case JoinAlgorithm::kBroadcastHashJoin:
+      export_operator->SetLeftInput(projection_operator);
+  }
 
-  const std::string pipeline_id = "pipeline-3";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline3 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
@@ -931,14 +970,22 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  // Partition by orderkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  switch (GetJoinAlgorithmForPipeline("pipeline-5")) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+    case JoinAlgorithm::kSortMergeJoin: {
+      // Partition by orderkey.
+      const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+          std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+          /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-5") == JoinAlgorithm::kSortMergeJoin);
+      partition_operator->SetLeftInput(projection_operator);
+      export_operator->SetLeftInput(partition_operator);
+      break;
+    }
+    case JoinAlgorithm::kBroadcastHashJoin:
+      export_operator->SetLeftInput(projection_operator);
+  }
 
   const std::string pipeline_id = "pipeline-4";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -955,6 +1002,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     size_t partition_count, const std::vector<ObjectReference>& orders_input_objects,
     const std::vector<ObjectReference>& lineitem_input_objects) const {
   using namespace expression_functional;
+  const std::string pipeline_id = "pipeline-5";
   const std::string orders_import_id = "left_import";
   // From pipeline 1. Column 0: orderkey. Column 1: custkey.
   const auto orders_import_operator =
@@ -971,8 +1019,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 0, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(
+      JoinMode::kInner, predicate, empty_secondary_predicates,
+      GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kSortMergeJoin ? OperatorType::kSortMergeJoin
+                                                                                : OperatorType::kHashJoin);
   join_operator->SetLeftInput(orders_import_operator);
   join_operator->SetRightInput(lineitem_import_operator);
 
@@ -983,16 +1033,23 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
-  // Partition by custkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(projection_operator);
-
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  switch (GetJoinAlgorithmForPipeline("pipeline-7")) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+    case JoinAlgorithm::kSortMergeJoin: {
+      // Partition by custkey.
+      const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+          std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+          GetJoinAlgorithmForPipeline("pipeline-7") == JoinAlgorithm::kSortMergeJoin);
+      partition_operator->SetLeftInput(projection_operator);
+      export_operator->SetLeftInput(partition_operator);
+      break;
+    }
+    case JoinAlgorithm::kBroadcastHashJoin:
+      export_operator->SetLeftInput(projection_operator);
+  }
 
-  const std::string pipeline_id = "pipeline-5";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
@@ -1030,14 +1087,22 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 3});
   import_operator->SetIdentity(left_import_id);
 
-  // Partition by custkey.
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
-  partition_operator->SetLeftInput(import_operator);
-
+  // TODO(bori00): for broadcast hash join this pipeline should be removed entirely
   std::shared_ptr<ExportOperatorProxy> export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  export_operator->SetLeftInput(partition_operator);
+  switch (GetJoinAlgorithmForPipeline("pipeline-7")) {
+    case JoinAlgorithm::kPartitionedHashJoin:
+    case JoinAlgorithm::kSortMergeJoin: {
+      // Partition by custkey.
+      const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+          std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count), false);
+      partition_operator->SetLeftInput(import_operator);
+      export_operator->SetLeftInput(partition_operator);
+      break;
+    }
+    case JoinAlgorithm::kBroadcastHashJoin:
+      export_operator->SetLeftInput(import_operator);
+  }
 
   const std::string pipeline_id = "pipeline-6";
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
@@ -1054,6 +1119,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     size_t partition_count, const std::vector<ObjectReference>& customer_input_objects,
     const std::vector<ObjectReference>& lineitem_input_objects) const {
   using namespace expression_functional;
+  const std::string pipeline_id = "pipeline-7";
   const std::string orders_import_id = "left_import";
   // customers. Column 0: c_custkey. Column 1: nationkey.
   const auto customers_import_operator =
@@ -1070,8 +1136,10 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 0, .column_id_right = 0, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(
+      JoinMode::kInner, predicate, empty_secondary_predicates,
+      GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kSortMergeJoin ? OperatorType::kSortMergeJoin
+                                                                                : OperatorType::kHashJoin);
   join_operator->SetLeftInput(customers_import_operator);
   join_operator->SetRightInput(lineitem_import_operator);
 
@@ -1101,7 +1169,6 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
   export_operator->SetLeftInput(aggregate_operator);
 
-  const std::string pipeline_id = "pipeline-7";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline7 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
@@ -1344,9 +1411,11 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline1(
 
   const auto export_operator =
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
-  if (GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kPartitionedHashJoin) {
+  if (GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kPartitionedHashJoin ||
+      GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kSortMergeJoin) {
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+        std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+        /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kSortMergeJoin);
     partition_operator->SetLeftInput(projection_operator);
     export_operator->SetLeftInput(partition_operator);
   } else {
@@ -1368,15 +1437,17 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline2(
   if (GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kBroadcastHashJoin) {
     return {input_objects, std::nullopt, {0, 5}};
   }
-  Assert(GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kPartitionedHashJoin,
-         "Unhandled join algorithm for pipeline 3 of Q12");
+  Assert(GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kPartitionedHashJoin ||
+             GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kSortMergeJoin,
+         "Unhandled join algorithm for pipeline 3 of Query 12");
   const std::string left_import_id = "left_import";
   const auto import_operator =
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 5});
   import_operator->SetIdentity(left_import_id);
 
-  const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
-      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count));
+  auto partition_operator = std::make_shared<PartitionOperatorProxy>(
+      std::make_shared<HashPartitioningFunction>(std::set<ColumnId>{0}, partition_count),
+      /* sort_within_partition */ GetJoinAlgorithmForPipeline("pipeline-3") == JoinAlgorithm::kSortMergeJoin);
   partition_operator->SetLeftInput(import_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
@@ -1387,7 +1458,6 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline2(
   const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
   const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
                               (input_objects.size() % stage_1_partitions_per_worker_count);
-  AWS_LOGSTREAM_INFO("pqp_generator", "Worker count pipeline 2 Q12: " << worker_count);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -1400,6 +1470,8 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline3(
     const std::vector<ColumnId>& right_column_indices) const {
   // NOLINTNEXTLINE(google-build-using-namespace)
   using namespace expression_functional;
+
+  const std::string pipeline_id = "pipeline-3";
 
   const std::string left_import_id = "left_import";
   auto import_operator_left =
@@ -1414,8 +1486,10 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline3(
   std::vector<std::shared_ptr<JoinOperatorPredicate>> empty_secondary_predicates;
   const auto predicate = std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
       .column_id_left = 0, .column_id_right = 0, .predicate_condition = PredicateCondition::kEquals});
-  const auto join_operator =
-      std::make_shared<JoinOperatorProxy>(JoinMode::kInner, predicate, empty_secondary_predicates);
+  const auto join_operator = std::make_shared<JoinOperatorProxy>(
+      JoinMode::kInner, predicate, empty_secondary_predicates,
+      GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kSortMergeJoin ? OperatorType::kSortMergeJoin
+                                                                                : OperatorType::kHashJoin);
   join_operator->SetLeftInput(import_operator_left);
   join_operator->SetRightInput(import_operator_right);
 
@@ -1441,7 +1515,6 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline3(
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
   export_operator->SetLeftInput(aggregate_operator);
 
-  const std::string pipeline_id = "pipeline-3";
   const auto output_objects = GenerateOutputObjectIds(partition_count, pipeline_id, kIntermediateResultsExportFormat);
 
   auto pipeline3 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);

@@ -26,14 +26,24 @@ class JoinOperatorProxyTest : public ::testing::Test {
 };
 
 TEST_F(JoinOperatorProxyTest, BaseProperties) {
-  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_);
+  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+                                                  OperatorType::kHashJoin);
   EXPECT_EQ(join_proxy->Type(), OperatorType::kHashJoin);
   EXPECT_TRUE(join_proxy->RequiresRightInput());
   EXPECT_TRUE(join_proxy->IsPipelineBreaker());
 }
 
+TEST_F(JoinOperatorProxyTest, BaseProperties_SortMerge) {
+  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+                                                  OperatorType::kSortMergeJoin);
+  EXPECT_EQ(join_proxy->Type(), OperatorType::kSortMergeJoin);
+  EXPECT_TRUE(join_proxy->RequiresRightInput());
+  EXPECT_TRUE(join_proxy->IsPipelineBreaker());
+}
+
 TEST_F(JoinOperatorProxyTest, Description) {
-  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_);
+  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+                                                  OperatorType::kHashJoin);
   join_proxy->SetImplementation(OperatorType::kHashJoin);
 
   EXPECT_EQ(join_proxy->Description(DescriptionMode::kSingleLine),
@@ -48,7 +58,8 @@ TEST_F(JoinOperatorProxyTest, DescriptionMultiPredicate) {
           .column_id_left = 0, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals}),
       std::make_shared<JoinOperatorPredicate>(JoinOperatorPredicate{
           .column_id_left = 1, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals})};
-  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kFullOuter, primary_predicate_, secondary_predicates);
+  const auto join_proxy =
+      JoinOperatorProxy::Make(JoinMode::kFullOuter, primary_predicate_, secondary_predicates, OperatorType::kHashJoin);
 
   EXPECT_EQ(join_proxy->Description(DescriptionMode::kSingleLine),
             "[HashJoin] Full Outer where column #0 kEquals column #0 and column #0 kEquals column #1 and column "
@@ -59,7 +70,8 @@ TEST_F(JoinOperatorProxyTest, DescriptionMultiPredicate) {
 }
 
 TEST_F(JoinOperatorProxyTest, DescriptionCross) {
-  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kCross, nullptr, empty_secondary_predicates_);
+  const auto join_proxy =
+      JoinOperatorProxy::Make(JoinMode::kCross, nullptr, empty_secondary_predicates_, OperatorType::kHashJoin);
   EXPECT_EQ(join_proxy->Description(DescriptionMode::kSingleLine), "[HashJoin] Cross");
   EXPECT_EQ(join_proxy->Description(DescriptionMode::kMultiLine), "[HashJoin]\nCross");
 }
@@ -73,7 +85,7 @@ TEST_F(JoinOperatorProxyTest, OutputObjectsCount) {
   // clang-format off
 
   const auto join_proxy =
-  JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+  JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_, OperatorType::kHashJoin,
     import_proxy_a,
     import_proxy_b);
 
@@ -84,7 +96,7 @@ TEST_F(JoinOperatorProxyTest, OutputObjectsCount) {
 TEST_F(JoinOperatorProxyTest, OutputColumnsCount) {
   // clang-format off
   const auto join_proxy =
-  JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+  JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_, OperatorType::kHashJoin,
     ImportOperatorProxy::Make(kObjectReferences, std::vector<ColumnId>{ColumnId{0}}),
     ImportOperatorProxy::Make(kObjectReferences, std::vector<ColumnId>{ColumnId{0}, ColumnId{1}}));
   // clang-format on
@@ -92,7 +104,8 @@ TEST_F(JoinOperatorProxyTest, OutputColumnsCount) {
 }
 
 TEST_F(JoinOperatorProxyTest, SerializeAndDeserialize) {
-  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_);
+  const auto join_proxy = JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+                                                  OperatorType::kHashJoin);
 
   join_proxy->SetImplementation(OperatorType::kHashJoin);
 
@@ -122,7 +135,7 @@ TEST_F(JoinOperatorProxyTest, DeepCopy) {
           .column_id_left = 1, .column_id_right = 1, .predicate_condition = PredicateCondition::kEquals})};
   // clang-format off
   const auto join_proxy =
-  JoinOperatorProxy::Make(JoinMode::kLeftOuter, primary_predicate_, secondary_predicates,
+  JoinOperatorProxy::Make(JoinMode::kLeftOuter, primary_predicate_, secondary_predicates, OperatorType::kHashJoin,
     ImportOperatorProxy::Make(kObjectReferences, std::vector<ColumnId>{ColumnId{0}}),
     ImportOperatorProxy::Make(kObjectReferences, std::vector<ColumnId>{ColumnId{0}, ColumnId{1}}));
 
@@ -142,7 +155,7 @@ TEST_F(JoinOperatorProxyTest, CreateOperatorInstance) {
   // TODO(tobodner): Adjust test when adding the operator implementation.
   // clang-format off
   const auto join_proxy =
-  JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_,
+  JoinOperatorProxy::Make(JoinMode::kInner, primary_predicate_, empty_secondary_predicates_, OperatorType::kHashJoin,
     ImportOperatorProxy::Make(kObjectReferences, std::vector<ColumnId>{ColumnId{0}}),
     ImportOperatorProxy::Make(kObjectReferences, std::vector<ColumnId>{ColumnId{0}, ColumnId{1}}));
 

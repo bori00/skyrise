@@ -26,7 +26,7 @@ PqpPipelineScheduler::Execute() {
 
   SubmitTasksWithFinishedPredecessors();
 
-  execution_done_.wait(lock, [this]() { return AllTasksFinished(); });
+  execution_done_.wait(lock, [this]() { return (AllTasksFinished() || !error_message_.empty()); });
 
   std::shared_ptr<ObjectReference> final_result;
   std::vector<std::shared_ptr<PqpPipelineTask>> tasks;
@@ -71,6 +71,8 @@ bool PqpPipelineScheduler::AllTasksFinished() const {
 void PqpPipelineScheduler::OnFragmentExecutionFinishedCallback(
     const std::string& pipeline_id,
     const std::shared_ptr<PqpPipelineFragmentExecutionResult>& fragment_execution_result) {
+  AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(),
+                     "PQPPipelineScheduler - response of success=" << fragment_execution_result->is_success);
   if (!fragment_execution_result->is_success) {
     std::lock_guard lock(mutex_);
     std::stringstream error;

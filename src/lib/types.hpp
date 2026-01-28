@@ -284,14 +284,17 @@ enum class QueryId : std::uint8_t {
 
 enum class ScaleFactor : std::uint8_t { kSf1, kSf10, kSf100, kSf1000 };
 
-enum class JoinAlgorithm : std::uint8_t { kPartitionedHashJoin, kBroadcastHashJoin };
+enum class JoinAlgorithm : std::uint8_t { kPartitionedHashJoin, kBroadcastHashJoin, kSortMergeJoin };
 
+// TODO(fbori): replace by magine enum functions
 constexpr std::string_view JoinAlgorithmToString(JoinAlgorithm algo) {
   switch (algo) {
     case JoinAlgorithm::kPartitionedHashJoin:
       return "PartitionedHashJoin";
     case JoinAlgorithm::kBroadcastHashJoin:
       return "BroadcastHashJoin";
+    case JoinAlgorithm::kSortMergeJoin:
+      return "SortMergeJoin";
     default:
       return "Unknown";
   }
@@ -303,6 +306,9 @@ constexpr std::optional<JoinAlgorithm> StringToJoinAlgorithm(std::string_view na
   }
   if (name == "BroadcastHashJoin") {
     return JoinAlgorithm::kBroadcastHashJoin;
+  }
+  if (name == "SortMergeJoin") {
+    return JoinAlgorithm::kSortMergeJoin;
   }
 
   // Return empty optional if no match found

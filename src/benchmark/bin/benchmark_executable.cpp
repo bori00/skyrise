@@ -18,6 +18,7 @@
 #include "micro_benchmark/lambda/lambda_benchmark_runner.hpp"
 #include "system_benchmark/system_benchmark.hpp"
 #include "system_benchmark/system_benchmark_runner.hpp"
+#include "system_benchmark/system_benchmark_utils.hpp"
 #include "utils/assert.hpp"
 #include "utils/costs/cost_calculator.hpp"
 #include "utils/filesystem.hpp"
@@ -119,6 +120,10 @@ void BenchmarkExecutable::ExecuteBenchmark(const std::shared_ptr<skyrise::Abstra
                   .WithString("name", benchmark->Name())
                   .WithString("commit", GitMetadata::CommitSha1())
                   .WithString("query", cli_parse_result_["query_id"].as<std::string>())
+                  .WithString("join_config", skyrise::ParseJoinConfigurationFilePath(
+                                                 cli_parse_result_.as_optional<std::string>("join_config_filepath"))
+                                                 .View()
+                                                 .WriteReadable())
                   .WithString("SF", cli_parse_result_["scale_factor"].as<std::string>())
                   .WithInt64("stage_1_partitions_per_worker_count",
                              cli_parse_result_.as_optional<size_t>("stage_1_partitions_per_worker_count").value_or(-1))
@@ -129,8 +134,7 @@ void BenchmarkExecutable::ExecuteBenchmark(const std::shared_ptr<skyrise::Abstra
                   .WithString("date", skyrise::GetFormattedTimestamp("%Y/%m/%d-%H:%M:%S")))
           .WithArray("runs", benchmark_result);
 
-  // TODO(bori00): add join configuration for system benchmark
-  // TODO(bori00): remove non system-benchmark specific parameters from here
+  // TODO(bori00): remove non system-benchmark specific parameters from here?
 
   skyrise::WriteStringToFile(output.View().WriteReadable(), cli_parse_result_["output"].as<std::string>());
 

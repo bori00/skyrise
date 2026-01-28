@@ -5,7 +5,9 @@
 namespace skyrise {
 
 ByteBuffer::ByteBuffer(void* memory, size_t length)
-    : external_data_(reinterpret_cast<uint8_t*>(memory)), external_data_capacity_(length), external_data_size_(0) {}
+    : external_data_(reinterpret_cast<uint8_t*>(memory)),
+      external_data_capacity_(length),
+      external_data_size_(length) {}
 
 ByteBuffer::ByteBuffer(size_t initial_capacity)
     : external_data_(nullptr), external_data_capacity_(0), external_data_size_(0) {

@@ -44,10 +44,20 @@ namespace skyrise {
 
 namespace detail {
 
-// We need this indirection so that we can throw exceptions from destructors without the compiler complaining. That is
-// generally forbidden and might lead to std::terminate, but since we don't want to handle most errors anyway,
-// that's fine.
-[[noreturn]] inline void Fail(const std::string& message) { throw std::logic_error(message); }
+/**
+ * Custom exception class used to report assertion failures back to the coordinator.
+ * This prevents the worker process from crashing (e.g., via std::abort) and allows
+ * the Lambda runtime to return a structured error response.
+ */
+class AssertionFailedException : public std::runtime_error {
+ public:
+  explicit AssertionFailedException(const std::string& message) : std::runtime_error(message) {}
+};
+
+/**
+ * Throws an AssertionFailedException. This is called when an Assert or DebugAssert fails.
+ */
+[[noreturn]] inline void Fail(const std::string& message) { throw AssertionFailedException(message); }
 
 }  // namespace detail
 
