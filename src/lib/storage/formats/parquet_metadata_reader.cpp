@@ -65,6 +65,46 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
       ->CalculatePageOffsetsForColumnIds();
 }
 
+// Helper function to split a range into max_size chunks
+void AddRangesSafe(size_t start, size_t end, size_t max_size, std::vector<std::pair<size_t, size_t>>& ranges) {
+  size_t current_start = start;
+  while (current_start < end) {
+    // Determine the end of this specific chunk
+    size_t current_end = std::min(current_start + max_size, end);
+    ranges.emplace_back(current_start, current_end);
+
+    // Move start pointer for the next iteration
+    current_start = current_end;
+  }
+}
+
+/**
+ * Ensures that for any two subsequent ranges [start_i, end_i) and [start_i+1, end_i+1),
+ * end_i <= start_i+1.
+ *
+ * If an overlap is detected, the end of the first range is truncated to the start of the second.
+ * This assumes the vector is already sorted by start offset.
+ */
+void RemoveOverlaps(std::vector<std::pair<size_t, size_t>>& ranges) {
+  // 1. Truncate overlaps
+  // We iterate up to size-1 because we look ahead at [i+1]
+  for (size_t i = 0; i < ranges.size() - 1; ++i) {
+    auto& current = ranges[i];
+    const auto& next = ranges[i + 1];
+
+    if (current.second > next.first) {
+      current.second = next.first;
+    }
+  }
+
+  // 2. Remove empty ranges (Erase-Remove Idiom)
+  // This handles cases where a range was fully swallowed by the next one
+  // or was invalid to begin with.
+  ranges.erase(std::remove_if(ranges.begin(), ranges.end(),
+                              [](const std::pair<size_t, size_t>& range) { return range.first >= range.second; }),
+               ranges.end());
+}
+
 std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds() {
   // Calculate required byte ranges for projection pushdown.
   Assert(parquet_fragment_->EnsureCompleteMetadata().ok(), "Unable to extract metadata.");
@@ -81,18 +121,17 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
       for (const auto& row_group : parquet_fragment_->row_groups()) {
         auto partition_metadata = parquet_fragment_->metadata()->RowGroup(row_group);
         int64_t start_offset = partition_metadata->file_offset();
-        if (!ranges.empty() && start_offset > 0 && int64_t(ranges.back().second) > start_offset) {
-          ranges.back().second = start_offset;
-        }
         Assert(start_offset > 0, "Invalid start offset.");
         int64_t compressed_size = partition_metadata->total_compressed_size();
         int64_t end_offset = std::min<int64_t>(
             start_offset + padding + (compressed_size == 0 ? partition_metadata->total_byte_size() : compressed_size),
             object_size_);
-        Assert(end_offset - start_offset < kS3ReadRequestSizeBytes,
-               "Large request should be split into multiple smaller.");
-        ranges.emplace_back(start_offset, end_offset);
+
+        // break range into chunks of maximum allowed size, and add them to the final container
+        AddRangesSafe(start_offset, end_offset, kS3ReadRequestSizeBytes, ranges);
       }
+
+      RemoveOverlaps(ranges);
       return ranges;
     }
 
