@@ -82,8 +82,7 @@ inline constexpr uint32_t kReadRequestPaddingSizeBytes = 1_MB;
  * AWS advises to issue requests in the range of 8 MB - 16MB (c.f.
  * https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance-guidelines.html)
  */
-// TODO(bori00): implement multi-part requests for parquet_metadata_reader, line 89, and set this back to 16MB
-inline constexpr uint32_t kS3ReadRequestSizeBytes = 17_MB;
+inline constexpr uint32_t kS3ReadRequestSizeBytes = 16_MB;
 
 /**
  * A timeout of 500-2,000 ms is sufficient for requests with a size of 8-16 MB. This requires that the I/O thread pool
