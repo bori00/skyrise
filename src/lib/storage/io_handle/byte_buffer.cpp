@@ -4,7 +4,6 @@
 
 namespace skyrise {
 
-// TODO(bori00): do we consider *memory to be valid data or just a container?
 ByteBuffer::ByteBuffer(void* memory, size_t length)
     : external_data_(reinterpret_cast<uint8_t*>(memory)),
       external_data_capacity_(length),
