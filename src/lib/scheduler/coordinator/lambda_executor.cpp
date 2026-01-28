@@ -148,10 +148,12 @@ void LambdaExecutor::CollectSqsMessages(
       if (!is_duplicate) {
         // We set the result to successful, as we received a message.
         Assert(pipeline_id == response_view.GetString("pipeline_id"), "Worker response arrived to the wrong handler.");
-        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(), "Worker Message Processed " << response_view.GetString(kWorkerResponseIdAttribute)  << "'s response - SQS response handler of pipeline "
-                                                        << pipeline_id << " received response of "
-                                                        << response_view.GetString("pipeline_id") <<
-                                                        "success=" << (response_view.GetInteger(kResponseIsSuccessAttribute) != 0));
+        AWS_LOGSTREAM_INFO(kCoordinatorTag.c_str(),
+                           "Worker Message Processed "
+                               << response_view.GetString(kWorkerResponseIdAttribute)
+                               << "'s response - SQS response handler of pipeline " << pipeline_id
+                               << " received response of " << response_view.GetString("pipeline_id")
+                               << "success=" << (response_view.GetInteger(kResponseIsSuccessAttribute) != 0));
         const auto fragment_result =
             std::make_shared<PqpPipelineFragmentExecutionResult>(PqpPipelineFragmentExecutionResult{
                 .pipeline_id = pipeline_id,
