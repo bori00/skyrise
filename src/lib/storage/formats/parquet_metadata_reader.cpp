@@ -95,8 +95,6 @@ void RemoveOverlaps(std::vector<std::pair<size_t, size_t>>& ranges) {
     if (current.second > next.first) {
       current.second = next.first;
     }
-
-    Assert(current.second == next.first, "Missing gap");
   }
 
   // 2. Remove empty ranges (Erase-Remove Idiom)
@@ -130,22 +128,11 @@ std::shared_ptr<ObjectBuffer> ParquetFormatMetadataReader::CalculatePageOffsetsF
             start_offset + padding + (compressed_size == 0 ? partition_metadata->total_byte_size() : compressed_size),
             object_size_);
 
-        // AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader", "Attempt range "
-        //                                                       << start_offset << " " << end_offset
-        //                                                       << " - CalculatePageOffsetsForColumnIds-Special Case");
-
         // break range into chunks of maximum allowed size, and add them to the final container
         AddRangesSafe(start_offset, end_offset, kS3ReadRequestSizeBytes, ranges);
       }
 
       RemoveOverlaps(ranges);
-
-      // for (auto range : ranges) {
-      //   // AWS_LOGSTREAM_INFO("ParquetFormatMetadataReader", "Cleaned-Up Final range "
-      //   //                                                       << range.first << " " << range.second
-      //   //                                                       << " - CalculatePageOffsetsForColumnIds-Special
-      //   Case");
-      // }
     } else {
       for (const auto& row_group : parquet_fragment_->row_groups()) {
         for (int column : configuration_.include_columns.value()) {
