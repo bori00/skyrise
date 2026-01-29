@@ -22,7 +22,8 @@ class JoinOperatorProxy : public EnableMakeForPlanNode<JoinOperatorProxy, Abstra
                           public AbstractOperatorProxy {
  public:
   JoinOperatorProxy(const JoinMode mode, std::shared_ptr<JoinOperatorPredicate> primary_predicate,
-                    std::vector<std::shared_ptr<JoinOperatorPredicate>> secondary_predicates);
+                    std::vector<std::shared_ptr<JoinOperatorPredicate>> secondary_predicates,
+                    OperatorType operator_type);
 
   const std::string& Name() const override;
   std::string Description(const DescriptionMode mode) const override;

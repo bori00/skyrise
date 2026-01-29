@@ -7,5 +7,6 @@ namespace skyrise {
 CompilerName ParseCompilerName(const std::string& compiler_name_string);
 QueryId ParseQueryId(const std::string& query_id_string);
 ScaleFactor ParseScaleFactor(const std::string& scale_factor_string);
+Aws::Utils::Json::JsonValue ParseJoinConfigurationFilePath(const std::optional<std::string>& config_filepath);
 
 }  // namespace skyrise

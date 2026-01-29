@@ -486,7 +486,7 @@ std::string S3ObjectReader::GetRangeString(size_t first_byte, size_t last_byte) 
   std::stringstream stream;
   stream << "bytes=" << first_byte << "-";
   if (last_byte != kLastByteInFile) {
-    stream << last_byte;
+    stream << last_byte - 1;
   }
   return stream.str();
 }
@@ -499,28 +499,30 @@ std::string S3ObjectReader::GetRangeStringForTail(size_t num_last_bytes) {
 
 StorageError S3ObjectReader::Close() { return StorageError::Success(); }
 
-StorageError S3ObjectReader::ReadObjectAsync(const std::shared_ptr<ObjectBuffer>& buffer,
-                                             std::optional<std::vector<std::pair<size_t, size_t>>> ranges_optional) {
-  const std::vector<std::pair<size_t, size_t>> byte_ranges =
-      BuildByteRanges(ranges_optional, GetObjectSize(), kS3ReadRequestSizeBytes, kParquetFooterSizeBytes);
-  const auto get_requests = BuildRequestsFromByteRanges(byte_ranges, buffer);
+StorageError S3ObjectReader::ReadObjectAsync(const std::shared_ptr<ObjectBuffer>& buffer) {
+  const auto get_requests = BuildRequestsFromByteRanges(buffer);
   return ProcessGetObjectRequestsAsync(get_requests);
 }
 
 std::shared_ptr<std::vector<Aws::S3::Model::GetObjectRequest>> S3ObjectReader::BuildRequestsFromByteRanges(
-    const std::vector<std::pair<size_t, size_t>>& ranges, const std::shared_ptr<ObjectBuffer>& buffer) {
+    const std::shared_ptr<ObjectBuffer>& buffer) {
   auto requests = std::make_shared<std::vector<Aws::S3::Model::GetObjectRequest>>();
-  requests->reserve(ranges.size());
+  auto ranges_to_buffers = buffer->GetRequestBuffer();
+  requests->reserve(ranges_to_buffers->size());
 
-  for (const auto& [first_byte, last_byte] : ranges) {
-    bool read_entire_object = (first_byte == 0 && last_byte == kLastByteInFile);
-    std::string range_string;
-    if (!read_entire_object) {
-      range_string = GetRangeString(first_byte, last_byte);
+  for (const auto& range_to_buffer : *ranges_to_buffers) {
+    auto first_byte = range_to_buffer.first.first;
+    auto last_byte = range_to_buffer.first.second;
+    auto byte_buffer = range_to_buffer.second;
+
+    if (byte_buffer->Size() == 0) {
+      bool read_entire_object = (first_byte == 0 && last_byte == kLastByteInFile);
+      std::string range_string;
+      if (!read_entire_object) {
+        range_string = GetRangeString(first_byte, last_byte);
+      }
+      requests->push_back(CreateGetObjectRequest(byte_buffer.get(), range_string));
     }
-    const auto byte_buffer = std::make_shared<ByteBuffer>(last_byte - first_byte);
-    requests->push_back(CreateGetObjectRequest(byte_buffer.get(), range_string));
-    buffer->AddBuffer({{first_byte, last_byte}, byte_buffer});
   }
   return requests;
 }

@@ -35,7 +35,7 @@ ParquetFormatMetadataReader::ParquetFormatMetadataReader(const std::shared_ptr<O
   }
 }
 
-std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePageOffsets(
+std::shared_ptr<ObjectBuffer> ParquetFormatMetadataReader::CalculatePageOffsets(
     const std::shared_ptr<ObjectReader>& object_reader, const size_t object_size, const Configuration& configuration,
     const size_t footer_length) {
   uint32_t footer_request_size = std::min(object_size, static_cast<size_t>(footer_length));
@@ -62,10 +62,51 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
   }
 
   return std::make_shared<ParquetFormatMetadataReader>(object_buffer, object_size, configuration, footer_request_size)
-      ->CalculatePageOffsetsForColumnIds();
+      ->CalculatePageOffsetsForColumnIds({object_size - footer_request_size, object_size}, footer_buffer);
 }
 
-std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds() {
+// Helper function to split a range into max_size chunks
+void AddRangesSafe(size_t start, size_t end, size_t max_size, std::vector<std::pair<size_t, size_t>>& ranges) {
+  size_t current_start = start;
+  while (current_start < end) {
+    // Determine the end of this specific chunk
+    size_t current_end = std::min(current_start + max_size, end);
+    ranges.emplace_back(current_start, current_end);
+
+    // Move start pointer for the next iteration
+    current_start = current_end;
+  }
+}
+
+/**
+ * Ensures that for any two subsequent ranges [start_i, end_i) and [start_i+1, end_i+1),
+ * end_i <= start_i+1.
+ *
+ * If an overlap is detected, the end of the first range is truncated to the start of the second.
+ * This assumes the vector is already sorted by start offset.
+ */
+void RemoveOverlaps(std::vector<std::pair<size_t, size_t>>& ranges) {
+  // 1. Truncate overlaps
+  // We iterate up to size-1 because we look ahead at [i+1]
+  for (size_t i = 0; i < ranges.size() - 1; ++i) {
+    auto& current = ranges[i];
+    const auto& next = ranges[i + 1];
+
+    if (current.second > next.first) {
+      current.second = next.first;
+    }
+  }
+
+  // 2. Remove empty ranges (Erase-Remove Idiom)
+  // This handles cases where a range was fully swallowed by the next one
+  // or was invalid to begin with.
+  ranges.erase(std::remove_if(ranges.begin(), ranges.end(),
+                              [](const std::pair<size_t, size_t>& range) { return range.first >= range.second; }),
+               ranges.end());
+}
+
+std::shared_ptr<ObjectBuffer> ParquetFormatMetadataReader::CalculatePageOffsetsForColumnIds(
+    Range footer_request_range, std::shared_ptr<ByteBuffer> footer_buffer) {
   // Calculate required byte ranges for projection pushdown.
   Assert(parquet_fragment_->EnsureCompleteMetadata().ok(), "Unable to extract metadata.");
   std::vector<std::pair<size_t, size_t>> ranges;
@@ -86,20 +127,29 @@ std::vector<std::pair<size_t, size_t>> ParquetFormatMetadataReader::CalculatePag
         int64_t end_offset = std::min<int64_t>(
             start_offset + padding + (compressed_size == 0 ? partition_metadata->total_byte_size() : compressed_size),
             object_size_);
-        Assert(end_offset - start_offset < kS3ReadRequestSizeBytes,
-               "Large request should be split into multiple smaller.");
-        ranges.emplace_back(start_offset, end_offset);
-      }
-      return ranges;
-    }
 
-    for (const auto& row_group : parquet_fragment_->row_groups()) {
-      for (int column : configuration_.include_columns.value()) {
-        ComputeByteRange(parquet_fragment_->metadata().get(), object_size_, row_group, column, ranges);
+        // break range into chunks of maximum allowed size, and add them to the final container
+        AddRangesSafe(start_offset, end_offset, kS3ReadRequestSizeBytes, ranges);
+      }
+
+      RemoveOverlaps(ranges);
+    } else {
+      for (const auto& row_group : parquet_fragment_->row_groups()) {
+        for (int column : configuration_.include_columns.value()) {
+          ComputeByteRange(parquet_fragment_->metadata().get(), object_size_, row_group, column, ranges);
+        }
       }
     }
   }
-  return ranges;
+
+  const auto object_buffer = std::make_shared<ObjectBuffer>();
+  for (auto range : ranges) {
+    const auto byte_buffer = std::make_shared<ByteBuffer>(range.second - range.first);
+    object_buffer->AddBuffer({range, byte_buffer});
+  }
+  object_buffer->AddBuffer({footer_request_range, footer_buffer});
+
+  return object_buffer;
 }
 
 void ParquetFormatMetadataReader::ComputeByteRange(parquet::FileMetaData* file_metadata, int64_t source_size,

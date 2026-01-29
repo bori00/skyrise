@@ -69,10 +69,9 @@ class ObjectReader {
 
   /**
    * Asynchronously reads an object into the object buffer.
-   * If no byte ranges are passed to the function, it will read every byte of the object into the buffer.
+   * It reads every range added to the object buffer, whose corresponding ByteBuffer is currently empty (size==0).
    */
-  virtual StorageError ReadObjectAsync(const std::shared_ptr<ObjectBuffer>& object_buffer,
-                                       std::optional<std::vector<std::pair<size_t, size_t>>> byte_ranges);
+  virtual StorageError ReadObjectAsync(const std::shared_ptr<ObjectBuffer>& object_buffer);
 
   /**
    * Reads `num_last_bytes` from the end of the object. If the object is smaller than the requested number of bytes,
@@ -82,10 +81,6 @@ class ObjectReader {
   virtual StorageError ReadTail(size_t num_last_bytes, ByteBuffer* buffer);
   virtual const ObjectStatus& GetStatus() = 0;
   virtual StorageError Close() = 0;
-
-  static std::vector<std::pair<size_t, size_t>> BuildByteRanges(
-      std::optional<std::vector<std::pair<size_t, size_t>>>& ranges_optional, const size_t object_size,
-      const size_t request_size, const size_t footer_size);
 
  protected:
   ObjectStatus status_;

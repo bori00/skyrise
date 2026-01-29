@@ -70,6 +70,8 @@ set(
     compiler/pqp_generator/etl_pqp_generator.hpp
     compiler/pqp_generator/tpch_pqp_generator.cpp
     compiler/pqp_generator/tpch_pqp_generator.hpp
+    compiler/pqp_generator/utils/pipeline_generator.hpp
+    compiler/pqp_generator/utils/pipeline_generator.cpp
 )
 
 set(
@@ -149,6 +151,9 @@ set(
     operator/abstract_aggregate_operator.hpp
     operator/aggregate_hash_operator.cpp
     operator/aggregate_hash_operator.hpp
+    operator/abstract_join_operator.hpp
+    operator/abstract_join_operator.cpp
+    operator/abstract_aggregate_operator.cpp
     operator/abstract_operator.cpp
     operator/abstract_operator.hpp
     operator/alias_operator.cpp
@@ -177,6 +182,8 @@ set(
     operator/projection_operator.hpp
     operator/sort_operator.cpp
     operator/sort_operator.hpp
+    operator/sorted_merge_join_operator.hpp
+    operator/sorted_merge_join_operator.cpp
     operator/table_wrapper.hpp
 )
 

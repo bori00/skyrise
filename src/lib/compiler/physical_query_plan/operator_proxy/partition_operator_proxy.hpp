@@ -11,7 +11,8 @@ namespace skyrise {
 class PartitionOperatorProxy : public EnableMakeForPlanNode<PartitionOperatorProxy, AbstractOperatorProxy>,
                                public AbstractOperatorProxy {
  public:
-  explicit PartitionOperatorProxy(std::shared_ptr<AbstractPartitioningFunction> partitioning_function);
+  explicit PartitionOperatorProxy(std::shared_ptr<AbstractPartitioningFunction> partitioning_function,
+                                  bool sort_within_partition);
 
   const std::string& Name() const override;
   std::string Description(const DescriptionMode mode) const override;
@@ -21,6 +22,7 @@ class PartitionOperatorProxy : public EnableMakeForPlanNode<PartitionOperatorPro
    */
   size_t PartitionCount() const;
   const std::set<ColumnId>& PartitionColumnIds() const;
+  bool SortWithinPartition() const;
 
   /**
    * Optimization-relevant attributes
@@ -42,6 +44,7 @@ class PartitionOperatorProxy : public EnableMakeForPlanNode<PartitionOperatorPro
 
  private:
   const std::shared_ptr<AbstractPartitioningFunction> partitioning_function_;
+  const bool sort_within_partition_;
 };
 
 }  // namespace skyrise

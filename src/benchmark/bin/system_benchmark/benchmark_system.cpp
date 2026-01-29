@@ -19,6 +19,12 @@ int main(int argc, char** argv) {
     option_adder("shuffle_partitions_count", "The number of partitions in each shuffle stage of the query.",
                  cxxopts::value<size_t>());
     option_adder("worker_memory_size_mb", "The memory assigned to each worker, in MB.", cxxopts::value<size_t>());
+    option_adder("join_config_filepath",
+                 "The filepath to a json file defining the join algorithm used in each join of the query. "
+                 "If no file is provided, or no algorihtm is specified for a pipeline, then a Partitioned Hash Join "
+                 "will be applied."
+                 "Format: 'pipeline-<id>': 'BroadcastHashJoin' / 'PartitionedHashJoin'",
+                 cxxopts::value<std::string>());
 
     const cxxopts::ParseResult& parse_result = executable.GetParseResult(argc, argv);
 
@@ -32,7 +38,8 @@ int main(int argc, char** argv) {
         parse_result["after_repetition_delays_min"].as<std::vector<size_t>>(),
         parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count"),
         parse_result.as_optional<size_t>("shuffle_partitions_count"),
-        parse_result.as_optional<size_t>("worker_memory_size_mb"));
+        parse_result.as_optional<size_t>("worker_memory_size_mb"),
+        skyrise::ParseJoinConfigurationFilePath(parse_result.as_optional<std::string>("join_config_filepath")));
     executable.ExecuteBenchmark(benchmark);
   } catch (const std::exception& exception) {
     std::cout << exception.what() << "\n";

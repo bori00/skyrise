@@ -158,7 +158,8 @@ bool CoordinatorFunction::ValidateRequest(const Aws::Utils::Json::JsonView& requ
           request.KeyExists(kCoordinatorRequestQueryStringAttribute)) &&
          request.KeyExists(kCoordinatorRequestScaleFactorAttribute) &&
          request.KeyExists(kCoordinatorRequestShuffleStorageAttribute) &&
-         request.KeyExists(kCoordinatorRequestWorkerFunctionAttribute);
+         request.KeyExists(kCoordinatorRequestWorkerFunctionAttribute) &&
+         request.KeyExists(kCoordinatorRequestJoinConfigurationAttribute);
 }
 
 aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(

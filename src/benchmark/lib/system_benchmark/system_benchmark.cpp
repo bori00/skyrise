@@ -16,7 +16,8 @@ SystemBenchmark::SystemBenchmark(std::shared_ptr<const Aws::IAM::IAMClient> iam_
                                  const std::vector<size_t>& after_repetition_delays_min,
                                  const std::optional<size_t> stage_1_partitions_per_worker_count,
                                  const std::optional<size_t> shuffle_partitions_count,
-                                 const std::optional<size_t> worker_memory_size_mb)
+                                 const std::optional<size_t> worker_memory_size_mb,
+                                 const Aws::Utils::Json::JsonValue& join_configuration)
     : iam_client_(std::move(iam_client)), lambda_client_(std::move(lambda_client)), s3_client_(std::move(s3_client)) {
   for (const auto after_repetition_delay_min : after_repetition_delays_min) {
     std::vector<std::function<void()>> after_repetition_callbacks;
@@ -32,7 +33,7 @@ SystemBenchmark::SystemBenchmark(std::shared_ptr<const Aws::IAM::IAMClient> iam_
 
     config_ = std::make_shared<SystemBenchmarkConfig>(
         compiler_name, query_id, scale_factor, concurrent_instance_count, repetition_count, after_repetition_callbacks,
-        stage_1_partitions_per_worker_count, shuffle_partitions_count, worker_memory_size_mb);
+        stage_1_partitions_per_worker_count, shuffle_partitions_count, worker_memory_size_mb, join_configuration);
   }
 }
 
@@ -49,5 +50,7 @@ Aws::Utils::Array<Aws::Utils::Json::JsonValue> SystemBenchmark::OnRun(
     const std::shared_ptr<SystemBenchmarkRunner>& runner) {
   return runner->RunSystemConfig(config_)->GetResults();
 }
+
+std::shared_ptr<SystemBenchmarkConfig> SystemBenchmark::GetSystemBenchmarkConfig() const { return config_; }
 
 }  // namespace skyrise

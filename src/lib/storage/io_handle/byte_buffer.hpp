@@ -10,6 +10,8 @@ namespace skyrise {
 class ByteBuffer {
  public:
   explicit ByteBuffer(size_t initial_capacity = 0);
+
+  /* Wraps existing valid data. The caller is responsible for memory lifetime. */
   ByteBuffer(void* memory, size_t length);
 
   uint8_t* Data();

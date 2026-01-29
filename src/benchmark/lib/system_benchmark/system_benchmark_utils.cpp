@@ -1,5 +1,7 @@
 #include "system_benchmark_utils.hpp"
 
+#include <fstream>
+
 #include <magic_enum/magic_enum.hpp>
 
 namespace skyrise {
@@ -26,6 +28,38 @@ ScaleFactor ParseScaleFactor(const std::string& scale_factor_string) {
     Fail("Scale factor '" + scale_factor_string + "' cannot be parsed.");
   }
   return scale_factor.value();
+}
+
+/* Returns the JSON configuration from the file, if a file is provided. Else, returns an empty JSON object. */
+Aws::Utils::Json::JsonValue ParseJoinConfigurationFilePath(const std::optional<std::string>& config_filepath) {
+  if (config_filepath.has_value()) {
+    std::ifstream inputFile(config_filepath.value().c_str());
+
+    if (!inputFile.is_open()) {
+      Fail("Error: Unable to open file " + config_filepath.value());
+    }
+
+    Aws::Utils::Json::JsonValue jsonValue(inputFile);
+
+    if (!jsonValue.WasParseSuccessful()) {
+      Fail("Error: Failed to parse join configuration JSON. " + jsonValue.GetErrorMessage() + " from file " +
+           config_filepath.value());
+    }
+
+    // validate that all values are valid join algorithms
+    for (const auto& [key, value] : jsonValue.View().GetAllObjects()) {
+      Aws::String val_str = value.AsString();
+      // Check if it matches a valid Enum value
+      if (!StringToJoinAlgorithm(val_str.c_str()).has_value()) {
+        Fail("Error: Invalid JoinAlgorithm '" + val_str + "' for key '" + key);
+      }
+    }
+
+    // TODO(fbori): validate that all keys needed are present
+
+    return jsonValue;
+  }
+  return Aws::Utils::Json::JsonValue();
 }
 
 }  // namespace skyrise

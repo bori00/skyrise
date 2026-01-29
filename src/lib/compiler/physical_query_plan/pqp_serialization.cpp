@@ -66,6 +66,8 @@ std::shared_ptr<AbstractOperatorProxy> DeserializeOperatorProxy(const Aws::Utils
       return ProjectionOperatorProxy::FromJson(operator_parameters);
     case OperatorType::kSort:
       return SortOperatorProxy::FromJson(operator_parameters);
+    case OperatorType::kSortMergeJoin:
+      return JoinOperatorProxy::FromJson(operator_parameters);
     case OperatorType::kUnion:
       return UnionOperatorProxy::FromJson(operator_parameters);
     default:

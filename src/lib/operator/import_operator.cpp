@@ -67,6 +67,9 @@ std::shared_ptr<Chunk> ImportOperator::GetNextChunk(const std::shared_ptr<Abstra
 std::shared_ptr<const Table> ImportOperator::OnExecute(
     const std::shared_ptr<OperatorExecutionContext>& operator_execution_context) {
   // Create one reader factory per object. The data for the reader will already be available in-memory.
+  AWS_LOGSTREAM_INFO(kWorkerTag.c_str(), "Executing import operator for " << object_references_[0].bucket_name << " "
+                                                                          << object_references_[0].identifier);
+
   const auto input_handler = std::make_shared<InputHandler>();
   const auto reader_factories = input_handler->CreateBufferedFormatReaders(
       operator_execution_context, object_references_, factory_, import_format_, column_ids_);
