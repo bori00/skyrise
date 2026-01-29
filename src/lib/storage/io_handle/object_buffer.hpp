@@ -3,6 +3,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <ranges>
 #include <vector>
 
 #include "byte_buffer.hpp"
@@ -32,6 +33,17 @@ class ObjectBuffer {
    * This function adds another buffer that is managed by the object buffer.
    */
   void AddBuffer(const std::pair<Range, std::shared_ptr<ByteBuffer>>& buffer);
+
+  /**
+   * Note: the ObjectBuffer must stay alive as long as this view is used.
+   * This function is not thread-safe.
+   */
+  auto GetOrderedRangesView() const { return request_buffer_ | std::views::keys; };
+
+  /**
+   * Note: This function is not thread-safe.
+   */
+  const std::map<Range, std::shared_ptr<ByteBuffer>>* GetRequestBuffer() const { return &request_buffer_; }
 
  private:
   static std::shared_ptr<ByteBuffer> MergeBuffers(

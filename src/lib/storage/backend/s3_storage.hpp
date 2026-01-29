@@ -102,9 +102,7 @@ class S3ObjectReader : public ObjectReader {
   S3ObjectReader(const S3ObjectReader&) = delete;
 
   StorageError Read(size_t first_byte, size_t last_byte, ByteBuffer* buffer) override;
-  StorageError ReadObjectAsync(
-      const std::shared_ptr<ObjectBuffer>& buffer,
-      std::optional<std::vector<std::pair<size_t, size_t>>> ranges_optional = std::nullopt) override;
+  StorageError ReadObjectAsync(const std::shared_ptr<ObjectBuffer>& buffer) override;
   StorageError ReadTail(size_t num_last_bytes, ByteBuffer* buffer) override;
   const ObjectStatus& GetStatus() override;
   StorageError Close() override;
@@ -121,7 +119,7 @@ class S3ObjectReader : public ObjectReader {
       const std::shared_ptr<std::vector<Aws::S3::Model::GetObjectRequest>>& requests);
 
   std::shared_ptr<std::vector<Aws::S3::Model::GetObjectRequest>> BuildRequestsFromByteRanges(
-      const std::vector<std::pair<size_t, size_t>>& ranges, const std::shared_ptr<ObjectBuffer>& buffer);
+      const std::shared_ptr<ObjectBuffer>& buffer);
 
   std::shared_ptr<const Aws::S3::S3Client> client_;
   const std::string bucket_;

@@ -27,8 +27,14 @@ class InputHandler {
   /*
    * Projection push down on storage backend, e.g., S3 level. It determines the required byte ranges for the given
    * columns from the metadata of a given format (e.g., Parquet).
+   *
+   * It returns an ObjectBuffer with each range added and a ByteBuffer with the required capacity reserved for each.
+   * Note that some of the ranges may already have their ByteBuffer filled: these do not need to be read again.
+   * You only need to fill the ranges whose ByteBuffer has size 0.
+   * (Example: for parquet files, the range corresponding to the footer will already be filled upon return, as reading
+   * this is necessary for specifying the other byte ranges).
    */
-  static std::optional<std::vector<std::pair<size_t, size_t>>> PrecomputeByteRanges(
+  static std::optional<std::shared_ptr<ObjectBuffer>> PrecomputeByteRanges(
       const std::shared_ptr<ObjectReader>& object_reader, const ImportFormat import_format, const size_t object_size,
       const std::optional<const std::vector<ColumnId>>& columns, const std::optional<std::vector<int32_t>>& partitions);
   /*

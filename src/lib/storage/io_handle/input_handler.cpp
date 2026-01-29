@@ -45,7 +45,7 @@ std::shared_ptr<std::queue<LazyReaderConstructor>> InputHandler::CreateBufferedF
 
 size_t InputHandler::GetBytesReadCount() const { return bytes_read; }
 
-std::optional<std::vector<std::pair<size_t, size_t>>> InputHandler::PrecomputeByteRanges(
+std::optional<std::shared_ptr<ObjectBuffer>> InputHandler::PrecomputeByteRanges(
     const std::shared_ptr<ObjectReader>& object_reader, const ImportFormat import_format, const size_t object_size,
     const std::optional<const std::vector<ColumnId>>& columns, const std::optional<std::vector<int32_t>>& partitions) {
   switch (import_format) {
@@ -76,23 +76,23 @@ void InputHandler::ReadObjectAsyncTask(const std::shared_ptr<ObjectReader>& obje
                                        const std::shared_ptr<AbstractChunkReaderFactory>& factory,
                                        const std::optional<const std::vector<ColumnId>>& columns,
                                        const std::optional<std::vector<int32_t>>& partitions) {
-  const auto byte_ranges = PrecomputeByteRanges(object_reader, import_format, object_size, columns, partitions);
+  const auto object_buffer = PrecomputeByteRanges(object_reader, import_format, object_size, columns, partitions);
 
   // TODO(tobodner): Add instrumentation for throughput measurements.
   size_t read_size = 0;
-  for (const auto& range : byte_ranges.value()) {
+  for (const auto& range : object_buffer.value()->GetOrderedRangesView()) {
     read_size += (range.second - range.first);
   }
   AWS_LOGSTREAM_INFO("OPERATOR_BYTES_CONSUMED", read_size);
   bytes_read += read_size;
 
-  const auto object_buffer = std::make_shared<ObjectBuffer>();
-  const auto result = object_reader->ReadObjectAsync(object_buffer, byte_ranges);
+  const auto result = object_reader->ReadObjectAsync(object_buffer.value());
   Assert(!result.IsError(), "Error while loading object " + object_reference.identifier);
 
   std::lock_guard<std::mutex> lock_guard(queue_mutex_);
-  format_readers->emplace(
-      [factory, object_buffer, object_size, object_reference]() { return factory->Get(object_buffer, object_size); });
+  format_readers->emplace([factory, object_buffer, object_size, object_reference]() {
+    return factory->Get(object_buffer.value(), object_size);
+  });
 }
 
 void InputHandler::ReadObjectSyncTask(const std::shared_ptr<ObjectReader>& object_reader, const size_t object_size,

@@ -16,12 +16,14 @@ class ParquetFormatMetadataReader : public ParquetFormatReader {
                                        const Configuration& configuration = Configuration(),
                                        const size_t footer_length = kParquetFooterSizeBytes);
 
-  static std::vector<std::pair<size_t, size_t>> CalculatePageOffsets(
-      const std::shared_ptr<ObjectReader>& object_reader, const size_t object_size,
-      const Configuration& configuration = Configuration(), const size_t footer_length = kParquetFooterSizeBytes);
+  static std::shared_ptr<ObjectBuffer> CalculatePageOffsets(const std::shared_ptr<ObjectReader>& object_reader,
+                                                            const size_t object_size,
+                                                            const Configuration& configuration = Configuration(),
+                                                            const size_t footer_length = kParquetFooterSizeBytes);
 
  private:
-  std::vector<std::pair<size_t, size_t>> CalculatePageOffsetsForColumnIds();
+  std::shared_ptr<ObjectBuffer> CalculatePageOffsetsForColumnIds(Range footer_request_range,
+                                                                 std::shared_ptr<ByteBuffer> footer_buffer);
 
   static void ComputeByteRange(parquet::FileMetaData* file_metadata, int64_t source_size, int row_group_index,
                                int column_index, std::vector<std::pair<size_t, size_t>>& ranges);
