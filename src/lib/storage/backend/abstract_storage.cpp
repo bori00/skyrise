@@ -22,7 +22,17 @@ std::vector<std::pair<size_t, size_t>> ObjectReader::BuildByteRanges(
     std::optional<std::vector<std::pair<size_t, size_t>>>& ranges_optional, const size_t object_size,
     const size_t request_size, const size_t footer_size) {
   if (ranges_optional.has_value()) {
+    if (ranges_optional.value().back().second == 20737338) {
+      const size_t overwritten_footer_size = 4488098 + 10;  // true size is 4,488,098
+      AWS_LOGSTREAM_INFO("ObjectReader::BuildByteRanges", "WORKAROUND TEMP Adding footer of size "
+                                                              << overwritten_footer_size
+                                                              << " to ranges for object of size " << object_size);
+      ranges_optional.value().emplace_back(object_size - overwritten_footer_size, object_size);
+      return ranges_optional.value();
+    }
     // Add the footer.
+    AWS_LOGSTREAM_INFO("ObjectReader::BuildByteRanges",
+                       "Adding footer of size " << footer_size << " to ranges for object of size " << object_size);
     ranges_optional.value().emplace_back(object_size - footer_size, object_size);
     return ranges_optional.value();
   }
