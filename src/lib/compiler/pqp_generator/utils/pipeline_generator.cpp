@@ -9,11 +9,8 @@ namespace skyrise {
 namespace pqp_utils {
 
 PipelineInput::PipelineInput(const std::string input_id, InputShareType input_share_type,
-                             const std::vector<ObjectReference>& input_objects, std::string bucket_name)
-    : input_id_(input_id),
-      input_share_type_(input_share_type),
-      input_objects_(input_objects),
-      bucket_name_(bucket_name) {}
+                             const std::vector<ObjectReference>& input_objects)
+    : input_id_(input_id), input_share_type_(input_share_type), input_objects_(input_objects) {}
 
 void AddPipelineInputToMap(
     std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>>& fragment_to_inputs,
@@ -34,7 +31,7 @@ void AddPipelineInputToMap(
         fragment_to_inputs[fragment_id][pipeline_input.input_id()] = std::vector<ObjectReference>{};
         for (const auto& input_object : pipeline_input.input_objects()) {
           fragment_to_inputs[fragment_id][pipeline_input.input_id()].emplace_back(
-              pipeline_input.bucket_name(), input_object.identifier, "",
+              input_object.bucket_name, input_object.identifier, "",
               std::vector<int32_t>{static_cast<int32_t>(fragment_id)});
         }
       }

@@ -560,13 +560,13 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               input_objects_left, shuffle_storage_.bucket_name);
+                               input_objects_left);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(right_input_id,
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               input_objects_right, shuffle_storage_.bucket_name);
+                               input_objects_right);
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
       pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 
@@ -655,13 +655,13 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               input_objects_left, shuffle_storage_.bucket_name);
+                               input_objects_left);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(right_input_id,
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               input_objects_right, shuffle_storage_.bucket_name);
+                               input_objects_right);
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
       pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 
@@ -937,13 +937,13 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline3(
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               supplier_input_objects, shuffle_storage_.bucket_name);
+                               supplier_input_objects);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(right_input_id,
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               lineitem_input_objects, shuffle_storage_.bucket_name);
+                               lineitem_input_objects);
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
       pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 
@@ -1073,13 +1073,13 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline5(
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               orders_input_objects, shuffle_storage_.bucket_name);
+                               orders_input_objects);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(lineitem_input_id,
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               lineitem_input_objects, shuffle_storage_.bucket_name);
+                               lineitem_input_objects);
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
       pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 
@@ -1200,13 +1200,13 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline7(
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               customer_input_objects, shuffle_storage_.bucket_name);
+                               customer_input_objects);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(lineitem_input_id,
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               lineitem_input_objects, shuffle_storage_.bucket_name);
+                               lineitem_input_objects);
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
       pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 
@@ -1556,13 +1556,13 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline3(
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kPartitionedByFileRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               input_objects_left, shuffle_storage_.bucket_name);
+                               input_objects_left);
   pqp_utils::PipelineInput right_input =
       pqp_utils::PipelineInput(right_input_id,
                                GetJoinAlgorithmForPipeline(pipeline_id) == JoinAlgorithm::kBroadcastHashJoin
                                    ? pqp_utils::PipelineInput::InputShareType::kBroadcastedRead
                                    : pqp_utils::PipelineInput::InputShareType::kPartitionedRead,
-                               input_objects_right, shuffle_storage_.bucket_name);
+                               input_objects_right);
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> fragment_to_inputs =
       pqp_utils::BuildPipelineFragmentsInputsMap({left_input, right_input}, partition_count);
 

@@ -21,18 +21,16 @@ class PipelineInput {
   };
 
   PipelineInput(std::string input_id, InputShareType input_share_type,
-                const std::vector<ObjectReference>& input_objects, std::string bucket_name);
+                const std::vector<ObjectReference>& input_objects);
 
   [[nodiscard]] std::string input_id() const { return input_id_; }
   [[nodiscard]] InputShareType input_share_type() const { return input_share_type_; }
   [[nodiscard]] const std::vector<ObjectReference>& input_objects() const { return input_objects_; }
-  [[nodiscard]] std::string bucket_name() const { return bucket_name_; }
 
  private:
   const std::string input_id_;
   const InputShareType input_share_type_;
   const std::vector<ObjectReference>& input_objects_;
-  const std::string bucket_name_;
 };
 
 std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> BuildPipelineFragmentsInputsMap(
