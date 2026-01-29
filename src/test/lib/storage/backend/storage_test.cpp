@@ -225,9 +225,9 @@ TYPED_TEST(AwsBaseStorageTest, CreateReadAsyncDeleteBigObject) {
     if (dynamic_cast<DynamoDbStorage*>(this->storage_) != nullptr ||
         dynamic_cast<FilesystemStorage*>(this->storage_) != nullptr) {
       // TODO(tobodner): Provide an async read implementation for DynamoDbStorage and FilesystemStorage.
-      EXPECT_ANY_THROW(reader->ReadObjectAsync(object_buffer, std::nullopt));
+      EXPECT_ANY_THROW(reader->ReadObjectAsync(object_buffer));
     } else {
-      EXPECT_FALSE(reader->ReadObjectAsync(object_buffer, std::nullopt).IsError());
+      EXPECT_FALSE(reader->ReadObjectAsync(object_buffer).IsError());
       auto byte_buffer = object_buffer->Read(0, test_file_size);
       EXPECT_TRUE(std::find_if(byte_buffer->CharData(), byte_buffer->CharData() + byte_buffer->Size(),
                                [](char x) { return x != 'x'; }) == byte_buffer->CharData() + byte_buffer->Size());
