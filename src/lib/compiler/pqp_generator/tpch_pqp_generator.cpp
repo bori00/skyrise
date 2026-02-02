@@ -128,26 +128,6 @@ std::shared_ptr<PqpPipeline> TpchPqpGenerator::GeneratePipeline(const std::strin
   return pipeline;
 }
 
-size_t TpchPqpGenerator::GetStage1PartitionsPerWorkerCount() const {
-  if (stage_1_partitions_per_worker_count_.has_value()) {
-    return stage_1_partitions_per_worker_count_.value();
-  }
-  switch (query_id_) {
-    case QueryId::kTpchQ1:
-      return 1;
-    case QueryId::kTpchQ3:
-      return 1;
-    case QueryId::kTpchQ5:
-      return 1;
-    case QueryId::kTpchQ6:
-      return 5;
-    case QueryId::kTpchQ12:
-      return 3;
-    default:
-      Fail("Unknown query.");
-  }
-}
-
 size_t TpchPqpGenerator::GetWorkerCount(const std::string pipeline_id) const {
   if (query_configuration_.View().KeyExists(pipeline_id)) {
     if (query_configuration_.View().GetObject(pipeline_id).KeyExists("worker_count")) {
@@ -191,7 +171,8 @@ size_t TpchPqpGenerator::GetWorkerCount(const std::string pipeline_id) const {
 JoinAlgorithm TpchPqpGenerator::GetJoinAlgorithmForPipeline(const std::string pipeline_id) const {
   if (query_configuration_.View().KeyExists(pipeline_id)) {
     if (query_configuration_.View().GetObject(pipeline_id).KeyExists("join_algorithm")) {
-      return StringToJoinAlgorithm(query_configuration_.View().GetObject(pipeline_id).GetString("join_algorithm"))
+      return magic_enum::enum_cast<JoinAlgorithm>(
+                 query_configuration_.View().GetObject(pipeline_id).GetString("join_algorithm"))
           .value_or(JoinAlgorithm::kBroadcastHashJoin);
     }
   }
@@ -272,9 +253,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(aggregate_operator);
 
   const std::string pipeline_id = "pipeline-1";
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   return {output_objects, GeneratePipeline(pipeline_id, import_id, export_operator, kIntermediateResultsExportFormat,
                                            input_objects, output_objects)};
@@ -404,9 +383,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     export_operator->SetLeftInput(filter_operator1);
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -451,9 +428,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     export_operator->SetLeftInput(projection_operator);
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -500,9 +475,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
     export_operator->SetLeftInput(projection_operator);
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline3 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -875,9 +848,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline2(
       Fail("Invalid join algorithm");
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -1019,9 +990,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline4(
       export_operator->SetLeftInput(projection_operator);
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline4 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -1145,9 +1114,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline6(
       Fail("Invalid join operator.");
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline6 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -1370,9 +1337,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   export_operator->SetLeftInput(aggregate_operator);
 
   const std::string pipeline_id = "pipeline-1";
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   return {output_objects, GeneratePipeline(pipeline_id, import_id, export_operator, kIntermediateResultsExportFormat,
                                            input_objects, output_objects)};
@@ -1476,9 +1441,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline1(
     export_operator->SetLeftInput(projection_operator);
   }
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline1 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
@@ -1510,9 +1473,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline2(
       std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
   export_operator->SetLeftInput(partition_operator);
 
-  const size_t stage_1_partitions_per_worker_count = GetStage1PartitionsPerWorkerCount();
-  const size_t worker_count = (input_objects.size() / stage_1_partitions_per_worker_count) +
-                              (input_objects.size() % stage_1_partitions_per_worker_count);
+  const size_t worker_count = GetWorkerCount(pipeline_id);
   auto output_objects = GenerateOutputObjectIds(worker_count, pipeline_id, kIntermediateResultsExportFormat);
   const auto pipeline2 = GeneratePipeline(pipeline_id, left_import_id, export_operator,
                                           kIntermediateResultsExportFormat, input_objects, output_objects);
