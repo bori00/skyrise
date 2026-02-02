@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
         parse_result.as_optional<size_t>("stage_1_partitions_per_worker_count"),
         parse_result.as_optional<size_t>("shuffle_partitions_count"),
         parse_result.as_optional<size_t>("worker_memory_size_mb"),
-        skyrise::ParseJoinConfigurationFilePath(parse_result.as_optional<std::string>("join_config_filepath")));
+        skyrise::ParseJoinConfigurationFilePath(parse_result.as_optional<std::string>("query_config_filepath")));
     executable.ExecuteBenchmark(benchmark);
   } catch (const std::exception& exception) {
     std::cout << exception.what() << "\n";

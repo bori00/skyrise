@@ -31,7 +31,7 @@ class SystemBenchmarkConfig : public AbstractBenchmarkConfig {
   std::optional<size_t> GetStage1PartitionsPerWorkerCount() const;
   std::optional<size_t> GetShufflePartitionsCount() const;
   std::optional<size_t> GetWorkerMemorySizeMb() const;
-  Aws::Utils::Json::JsonValue GetJoinConfiguration() const;
+  Aws::Utils::Json::JsonValue GetQueryConfiguration() const;
 
  protected:
   const CompilerName compiler_name_;

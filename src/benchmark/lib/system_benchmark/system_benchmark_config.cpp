@@ -27,6 +27,6 @@ std::optional<size_t> SystemBenchmarkConfig::GetStage1PartitionsPerWorkerCount()
 };
 std::optional<size_t> SystemBenchmarkConfig::GetShufflePartitionsCount() const { return shuffle_partitions_count_; };
 std::optional<size_t> SystemBenchmarkConfig::GetWorkerMemorySizeMb() const { return worker_memory_size_mb_; };
-Aws::Utils::Json::JsonValue SystemBenchmarkConfig::GetJoinConfiguration() const { return query_configuration_; };
+Aws::Utils::Json::JsonValue SystemBenchmarkConfig::GetQueryConfiguration() const { return query_configuration_; };
 
 }  // namespace skyrise
