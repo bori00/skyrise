@@ -60,18 +60,24 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ1() const;
 
   // Query 3.
+  // Orders scan.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline1(
       const std::vector<ObjectReference>& input_objects) const;
+  // Customers scan.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline2(
       const std::vector<ObjectReference>& input_objects) const;
+  // Lineitem scan.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline3(
       const std::vector<ObjectReference>& input_objects) const;
+  // Customers with orders join.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline4(
       const std::vector<ObjectReference>& input_objects_left,
       const std::vector<ObjectReference>& input_objects_right) const;
+  // Join the above with lineitems.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline5(
       const std::vector<ObjectReference>& input_objects_left,
       const std::vector<ObjectReference>& input_objects_right) const;
+  // Final aggregation.
   std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> GenerateQ3Pipeline6(
       const std::vector<ObjectReference>& input_objects) const;
   std::vector<std::shared_ptr<PqpPipeline>> GenerateQ3() const;

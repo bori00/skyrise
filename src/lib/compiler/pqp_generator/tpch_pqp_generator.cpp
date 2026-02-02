@@ -137,35 +137,7 @@ size_t TpchPqpGenerator::GetWorkerCount(const std::string pipeline_id) const {
   if (shuffle_partitions_count_.has_value()) {
     return shuffle_partitions_count_.value();
   }
-  switch (query_id_) {
-    case QueryId::kTpchQ1:
-      return 1;
-    case QueryId::kTpchQ3:
-      return 5;
-    case QueryId::kTpchQ5:
-      return 1;
-    case QueryId::kTpchQ6:
-      return 1;
-    case QueryId::kTpchQ12:
-      switch (scale_factor_) {
-        case ScaleFactor::kSf1: {
-          return 3;
-        } break;
-        case ScaleFactor::kSf10: {
-          return 10;
-        } break;
-        case ScaleFactor::kSf100: {
-          return 100;
-        } break;
-        case ScaleFactor::kSf1000: {
-          return 1000;
-        }
-        default:
-          Fail("Unknown scale factor.");
-      }
-    default:
-      Fail("Unknown query.");
-  }
+  return 1;
 }
 
 JoinAlgorithm TpchPqpGenerator::GetJoinAlgorithmForPipeline(const std::string pipeline_id) const {
@@ -173,10 +145,10 @@ JoinAlgorithm TpchPqpGenerator::GetJoinAlgorithmForPipeline(const std::string pi
     if (query_configuration_.View().GetObject(pipeline_id).KeyExists("join_algorithm")) {
       return magic_enum::enum_cast<JoinAlgorithm>(
                  query_configuration_.View().GetObject(pipeline_id).GetString("join_algorithm"))
-          .value_or(JoinAlgorithm::kBroadcastHashJoin);
+          .value_or(JoinAlgorithm::kPartitionedHashJoin);
     }
   }
-  return JoinAlgorithm::kBroadcastHashJoin;
+  return JoinAlgorithm::kPartitionedHashJoin;
 }
 
 void TpchPqpGenerator::SetAsPredecessorOf(std::optional<std::shared_ptr<PqpPipeline>> predecessor,
