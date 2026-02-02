@@ -50,7 +50,7 @@ Aws::Utils::Json::JsonValue ParseJoinConfigurationFilePath(const std::optional<s
     for (const auto& [key, value] : jsonValue.View().GetAllObjects()) {
       Aws::String val_str = value.AsString();
       // Check if it matches a valid Enum value
-      if (!StringToJoinAlgorithm(val_str.c_str()).has_value()) {
+      if (!magic_enum::enum_cast<JoinAlgorithm>(val_str.c_str()).has_value()) {
         Fail("Error: Invalid JoinAlgorithm '" + val_str + "' for key '" + key);
       }
     }
