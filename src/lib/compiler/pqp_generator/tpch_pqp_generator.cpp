@@ -1063,6 +1063,10 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline6(
   const std::string pipeline_id = "pipeline-6";
   const std::string successor_pipeline_id = "pipeline-7";
 
+  if (GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin) {
+    return {input_objects, std::nullopt, {0, 3}};
+  }
+
   // customers. Column 0: custkey. Column 3: nationkey.
   const std::string left_import_id = "left_import";
   const auto import_operator =
