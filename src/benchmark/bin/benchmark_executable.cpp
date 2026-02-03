@@ -120,15 +120,9 @@ void BenchmarkExecutable::ExecuteBenchmark(const std::shared_ptr<skyrise::Abstra
                   .WithString("name", benchmark->Name())
                   .WithString("commit", GitMetadata::CommitSha1())
                   .WithString("query", cli_parse_result_["query_id"].as<std::string>())
-                  .WithString("join_config", skyrise::ParseJoinConfigurationFilePath(
-                                                 cli_parse_result_.as_optional<std::string>("join_config_filepath"))
-                                                 .View()
-                                                 .WriteReadable())
+                  .WithObject("query_config", skyrise::ParseJoinConfigurationFilePath(
+                                                  cli_parse_result_.as_optional<std::string>("query_config_filepath")))
                   .WithString("SF", cli_parse_result_["scale_factor"].as<std::string>())
-                  .WithInt64("stage_1_partitions_per_worker_count",
-                             cli_parse_result_.as_optional<size_t>("stage_1_partitions_per_worker_count").value_or(-1))
-                  .WithInt64("shuffle_partitions_count",
-                             cli_parse_result_.as_optional<size_t>("shuffle_partitions_count").value_or(-1))
                   .WithInt64("worker_memory_size_mb",
                              cli_parse_result_.as_optional<size_t>("worker_memory_size_mb").value_or(-1))
                   .WithString("date", skyrise::GetFormattedTimestamp("%Y/%m/%d-%H:%M:%S")))

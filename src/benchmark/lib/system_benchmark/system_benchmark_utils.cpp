@@ -48,14 +48,12 @@ Aws::Utils::Json::JsonValue ParseJoinConfigurationFilePath(const std::optional<s
 
     // validate that all values are valid join algorithms
     for (const auto& [key, value] : jsonValue.View().GetAllObjects()) {
-      Aws::String val_str = value.AsString();
+      Aws::String val_str = value.GetString("join_algorithm");
       // Check if it matches a valid Enum value
-      if (!StringToJoinAlgorithm(val_str.c_str()).has_value()) {
+      if (!val_str.empty() && !magic_enum::enum_cast<JoinAlgorithm>(val_str.c_str()).has_value()) {
         Fail("Error: Invalid JoinAlgorithm '" + val_str + "' for key '" + key);
       }
     }
-
-    // TODO(fbori): validate that all keys needed are present
 
     return jsonValue;
   }

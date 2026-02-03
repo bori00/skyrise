@@ -14,10 +14,8 @@ SystemBenchmark::SystemBenchmark(std::shared_ptr<const Aws::IAM::IAMClient> iam_
                                  const QueryId& query_id, const ScaleFactor& scale_factor,
                                  const size_t concurrent_instance_count, const size_t repetition_count,
                                  const std::vector<size_t>& after_repetition_delays_min,
-                                 const std::optional<size_t> stage_1_partitions_per_worker_count,
-                                 const std::optional<size_t> shuffle_partitions_count,
                                  const std::optional<size_t> worker_memory_size_mb,
-                                 const Aws::Utils::Json::JsonValue& join_configuration)
+                                 const Aws::Utils::Json::JsonValue& query_configuration)
     : iam_client_(std::move(iam_client)), lambda_client_(std::move(lambda_client)), s3_client_(std::move(s3_client)) {
   for (const auto after_repetition_delay_min : after_repetition_delays_min) {
     std::vector<std::function<void()>> after_repetition_callbacks;
@@ -31,9 +29,9 @@ SystemBenchmark::SystemBenchmark(std::shared_ptr<const Aws::IAM::IAMClient> iam_
 
     after_repetition_callbacks.emplace_back([]() {});
 
-    config_ = std::make_shared<SystemBenchmarkConfig>(
-        compiler_name, query_id, scale_factor, concurrent_instance_count, repetition_count, after_repetition_callbacks,
-        stage_1_partitions_per_worker_count, shuffle_partitions_count, worker_memory_size_mb, join_configuration);
+    config_ = std::make_shared<SystemBenchmarkConfig>(compiler_name, query_id, scale_factor, concurrent_instance_count,
+                                                      repetition_count, after_repetition_callbacks,
+                                                      worker_memory_size_mb, query_configuration);
   }
 }
 
