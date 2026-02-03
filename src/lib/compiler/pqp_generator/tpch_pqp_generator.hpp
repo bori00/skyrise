@@ -6,15 +6,9 @@ namespace skyrise {
 
 class TpchPqpGenerator : public AbstractCompiler {
  public:
-  TpchPqpGenerator(
-      const QueryId& query_id, const ScaleFactor& scale_factor, const ObjectReference& shuffle_storage_prefix,
-      const std::optional<size_t> stage_1_partitions_per_worker_count = std::nullopt
-      /* The number of .parquet or .csv files of the partitioned input table read by a single stage 1 worker. If empty,
-         then the hardcoded values will be used. */
-      ,
-      const std::optional<size_t> shuffle_partitions_count = std::nullopt,
-      /* The number of partitions applied in any shuffle operation. If empty, then the hardcoded values will be used. */
-      const Aws::Utils::Json::JsonValue& join_configuration = Aws::Utils::Json::JsonValue());
+  TpchPqpGenerator(const QueryId& query_id, const ScaleFactor& scale_factor,
+                   const ObjectReference& shuffle_storage_prefix,
+                   const Aws::Utils::Json::JsonValue& join_configuration = Aws::Utils::Json::JsonValue());
 
   std::vector<std::shared_ptr<PqpPipeline>> GeneratePqp() const final;
 
@@ -25,8 +19,6 @@ class TpchPqpGenerator : public AbstractCompiler {
   };
 
  private:
-  const std::optional<size_t> stage_1_partitions_per_worker_count_;
-  const std::optional<size_t> shuffle_partitions_count_;
   const Aws::Utils::Json::JsonValue query_configuration_;
 
   std::vector<ObjectReference> ListTableObjects(const std::string& table_name, const FileFormat& import_format) const;
@@ -131,25 +123,15 @@ class TpchPqpGenerator : public AbstractCompiler {
 
 class TpchPqpGeneratorConfig : public AbstractCompilerConfig {
  public:
-  TpchPqpGeneratorConfig(
-      const CompilerName& compiler_name, const QueryId& query_id, const ScaleFactor& scale_factor,
-      const ObjectReference& shuffle_storage_prefix,
-      const std::optional<size_t> stage_1_partitions_per_worker_count = std::nullopt
-      /* The number of .parquet or .csv files of the partitioned input table read by a single stage 1 worker. If empty,
-         then the hardcoded values will be used. */
-      ,
-      const std::optional<size_t> shuffle_partitions_count = std::nullopt
-      /* The number of partitions applied in any shuffle operation. If empty, then the hardcoded values will be used. */
-      ,
-      const Aws::Utils::Json::JsonValue& query_configuration = Aws::Utils::Json::JsonValue()
-      /* Contains the join algorithm and resource allocation for each pipeline of the query. */);
+  TpchPqpGeneratorConfig(const CompilerName& compiler_name, const QueryId& query_id, const ScaleFactor& scale_factor,
+                         const ObjectReference& shuffle_storage_prefix,
+                         const Aws::Utils::Json::JsonValue& query_configuration = Aws::Utils::Json::JsonValue()
+                         /* Contains the join algorithm and resource allocation for each pipeline of the query. */);
 
   std::shared_ptr<AbstractCompiler> GenerateCompiler() const final;
   bool operator==(const TpchPqpGeneratorConfig& other) const;
 
  private:
-  const std::optional<size_t> stage_1_partitions_per_worker_count_;
-  const std::optional<size_t> shuffle_partitions_count_;
   const Aws::Utils::Json::JsonValue query_configuration_;
 };
 

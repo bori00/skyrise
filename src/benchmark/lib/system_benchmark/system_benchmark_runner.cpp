@@ -79,15 +79,6 @@ std::shared_ptr<AbstractBenchmarkResult> SystemBenchmarkRunner::OnRunConfig() {
                             .ToJson())
             .WithString(kCoordinatorRequestWorkerFunctionAttribute, worker_function_name_)
             .WithObject(kCoordinatorRequestQueryConfigurationAttribute, typed_config_->GetQueryConfiguration());
-
-    if (typed_config_->GetStage1PartitionsPerWorkerCount().has_value()) {
-      payload = payload.WithInt64(kCoordinatorRequestStage1PartitionsPerWorkerCountAttribute,
-                                  typed_config_->GetStage1PartitionsPerWorkerCount().value());
-    }
-    if (typed_config_->GetShufflePartitionsCount().has_value()) {
-      payload = payload.WithInt64(kCoordinatorRequestShufflePartitionsCountAttribute,
-                                  typed_config_->GetShufflePartitionsCount().value());
-    }
     const auto request_payload_stream = std::make_shared<std::stringstream>(payload.View().WriteCompact());
     invoke_request.SetBody(request_payload_stream);
 

@@ -27,13 +27,8 @@ namespace skyrise {
 
 TpchPqpGenerator::TpchPqpGenerator(const QueryId& query_id, const ScaleFactor& scale_factor,
                                    const ObjectReference& shuffle_storage_prefix,
-                                   const std::optional<size_t> stage_1_partitions_per_worker_count,
-                                   const std::optional<size_t> shuffle_partitions_count,
                                    const Aws::Utils::Json::JsonValue& query_configuration)
-    : AbstractCompiler(query_id, scale_factor, shuffle_storage_prefix),
-      stage_1_partitions_per_worker_count_(stage_1_partitions_per_worker_count),
-      shuffle_partitions_count_(shuffle_partitions_count),
-      query_configuration_(query_configuration) {}
+    : AbstractCompiler(query_id, scale_factor, shuffle_storage_prefix), query_configuration_(query_configuration) {}
 
 std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GeneratePqp() const {
   std::vector<std::shared_ptr<PqpPipeline>> result;
@@ -133,9 +128,6 @@ size_t TpchPqpGenerator::GetWorkerCount(const std::string pipeline_id) const {
     if (query_configuration_.View().GetObject(pipeline_id).KeyExists("worker_count")) {
       return query_configuration_.View().GetObject(pipeline_id).GetInt64("worker_count");
     }
-  }
-  if (shuffle_partitions_count_.has_value()) {
-    return shuffle_partitions_count_.value();
   }
   return 1;
 }
@@ -1592,26 +1584,17 @@ std::vector<std::shared_ptr<PqpPipeline>> TpchPqpGenerator::GenerateQ12() const 
 TpchPqpGeneratorConfig::TpchPqpGeneratorConfig(const CompilerName& compiler_name, const QueryId& query_id,
                                                const ScaleFactor& scale_factor,
                                                const ObjectReference& shuffle_storage_prefix,
-                                               const std::optional<size_t> stage_1_partitions_per_worker_count,
-                                               const std::optional<size_t> shuffle_partitions_count,
                                                const Aws::Utils::Json::JsonValue& query_configuration)
     : AbstractCompilerConfig(compiler_name, query_id, scale_factor, shuffle_storage_prefix),
-      stage_1_partitions_per_worker_count_(stage_1_partitions_per_worker_count),
-      shuffle_partitions_count_(shuffle_partitions_count),
       query_configuration_(query_configuration) {}
 
 std::shared_ptr<AbstractCompiler> TpchPqpGeneratorConfig::GenerateCompiler() const {
-  return std::make_shared<TpchPqpGenerator>(query_id_, scale_factor_, shuffle_storage_,
-                                            stage_1_partitions_per_worker_count_, shuffle_partitions_count_,
-                                            query_configuration_);
+  return std::make_shared<TpchPqpGenerator>(query_id_, scale_factor_, shuffle_storage_, query_configuration_);
 }
 
 bool TpchPqpGeneratorConfig::operator==(const TpchPqpGeneratorConfig& other) const {
   return query_id_ == other.query_id_ && scale_factor_ == other.scale_factor_ &&
-         shuffle_storage_ == other.shuffle_storage_ &&
-         stage_1_partitions_per_worker_count_ == other.stage_1_partitions_per_worker_count_ &&
-         shuffle_partitions_count_ == other.shuffle_partitions_count_ &&
-         query_configuration_ == other.query_configuration_;
+         shuffle_storage_ == other.shuffle_storage_ && query_configuration_ == other.query_configuration_;
 }
 
 }  // namespace skyrise
