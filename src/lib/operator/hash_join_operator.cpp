@@ -104,10 +104,10 @@ void HashJoinOperator::FillPositionLists() {
     AWS_LOGSTREAM_INFO("HashJoinOperator", "Left table: " << LeftInputTable()->RowCount()
                                                           << " ; Right Table: " << RightInputTable()->RowCount());
 
-    if (LeftInputTable()->RowCount() > RightInputTable()->RowCount()) {
+    if (LeftInputTable()->RowCount() > RightInputTable()->RowCount() && join_mode_ == JoinMode::kInner) {
       // if the left table turns out to be larger than the right one, then use the right table as the build side and the
       // left table as the probe side, to save memory
-
+      // TODO(bori00): test the side switch for the outer joins as well
       table_A_matches_left = false;
       AWS_LOGSTREAM_INFO("HashJoinOperator", "Switch the left and right side of the tables");
     } else {
@@ -123,7 +123,7 @@ void HashJoinOperator::FillPositionLists() {
     dangling_tuples_table_A_count_ = build_side_table->RowCount();
     dangling_tuples_table_A_.reserve(build_side_table->ChunkCount());
     dangling_tuples_table_B_count_ = 0;
-    dangling_tuples_table_B_offsets_.reserve(RightInputTable()->ChunkCount());
+    dangling_tuples_table_B_offsets_.reserve(probe_side_table->ChunkCount());
 
     for (ChunkId i = 0; i < build_side_table->ChunkCount(); ++i) {
       const auto input_chunk = build_side_table->GetChunk(i);
@@ -148,7 +148,7 @@ void HashJoinOperator::FillPositionLists() {
      * match.
      */
     for (ChunkId i = 0; i < probe_side_table->ChunkCount(); ++i) {
-      const auto input_chunk = RightInputTable()->GetChunk(i);
+      const auto input_chunk = probe_side_table->GetChunk(i);
       const auto abstract_segment = input_chunk->GetSegment(probe_side_join_column_id);
       const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
       const auto segment_values = typed_segment->Values();
@@ -159,7 +159,7 @@ void HashJoinOperator::FillPositionLists() {
         auto matches = build_table.equal_range(segment_values[j]);
 
         if (matches.first == matches.second) {
-          // No matches for tuple with RowId (i,j) of the right table were found.
+          // No matches for tuple with RowId (i,j) of the table_B were found.
           dangling_offsets_in_segment.emplace_back(j);
           dangling_tuples_table_B_count_++;
           continue;
