@@ -99,26 +99,26 @@ void HashJoinOperator::FillPositionLists() {
      *    4 => [(1,1)]
      */
     std::unordered_multimap<ColumnDataType, RowId> build_table;
-
-    auto build_side_table = LeftInputTable();
-    auto probe_side_table = RightInputTable();
     table_A_matches_left = true;
+
+    AWS_LOGSTREAM_INFO("HashJoinOperator", "Left table: " << LeftInputTable()->RowCount()
+                                                          << " ; Right Table: " << RightInputTable()->RowCount());
 
     if (LeftInputTable()->RowCount() > RightInputTable()->RowCount()) {
       // if the left table turns out to be larger than the right one, then use the right table as the build side and the
       // left table as the probe side, to save memory
 
       table_A_matches_left = false;
-      table_A = RightInputTable();
-      table_B = LeftInputTable();
-      build_side_table = RightInputTable();
-      probe_side_table = LeftInputTable();
       AWS_LOGSTREAM_INFO("HashJoinOperator", "Switch the left and right side of the tables");
     } else {
-      table_A = LeftInputTable();
-      table_B = RightInputTable();
+      table_A_matches_left = true;
       AWS_LOGSTREAM_INFO("HashJoinOperator", "Don't switch the left and right side of the tables");
     }
+
+    auto build_side_join_column_id = table_A_matches_left ? predicate_->column_id_left : predicate_->column_id_right;
+    auto probe_side_join_column_id = table_A_matches_left ? predicate_->column_id_right : predicate_->column_id_left;
+    auto build_side_table = table_A = table_A_matches_left ? LeftInputTable() : RightInputTable();
+    auto probe_side_table = table_B = table_A_matches_left ? RightInputTable() : LeftInputTable();
 
     dangling_tuples_table_A_count_ = build_side_table->RowCount();
     dangling_tuples_table_A_.reserve(build_side_table->ChunkCount());
@@ -127,7 +127,7 @@ void HashJoinOperator::FillPositionLists() {
 
     for (ChunkId i = 0; i < build_side_table->ChunkCount(); ++i) {
       const auto input_chunk = build_side_table->GetChunk(i);
-      const auto abstract_segment = input_chunk->GetSegment(predicate_->column_id_left);
+      const auto abstract_segment = input_chunk->GetSegment(build_side_join_column_id);
       const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
       const auto segment_values = typed_segment->Values();
 
@@ -149,7 +149,7 @@ void HashJoinOperator::FillPositionLists() {
      */
     for (ChunkId i = 0; i < probe_side_table->ChunkCount(); ++i) {
       const auto input_chunk = RightInputTable()->GetChunk(i);
-      const auto abstract_segment = input_chunk->GetSegment(predicate_->column_id_right);
+      const auto abstract_segment = input_chunk->GetSegment(probe_side_join_column_id);
       const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
       const auto segment_values = typed_segment->Values();
 
