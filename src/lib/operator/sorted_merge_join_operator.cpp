@@ -84,12 +84,19 @@ void SortedMergeJoinOperator::FillPositionLists() {
   ResolveDataType(LeftInputTable()->ColumnDataType(predicate_->column_id_left), [&](auto data_type) {
     using ColumnDataType = decltype(data_type);
 
+    table_A = LeftInputTable();
+    table_B = RightInputTable();
+
+    dangling_tuples_table_A_count_ = LeftInputTable()->RowCount();
+    dangling_tuples_table_A_.reserve(RightInputTable()->ChunkCount());
+    dangling_tuples_table_B_count_ = 0;
+    dangling_tuples_table_B_offsets_.reserve(RightInputTable()->ChunkCount());
+
     std::vector<std::vector<bool>> dangling_tuples_right;
-    dangling_tuples_right_count_ = 0;
     dangling_tuples_right.reserve(RightInputTable()->ChunkCount());
     for (ChunkId right_chunk_id = 0; right_chunk_id < RightInputTable()->ChunkCount(); ++right_chunk_id) {
       dangling_tuples_right.emplace_back(RightInputTable()->GetChunk(right_chunk_id)->Size(), true);
-      dangling_tuples_right_count_ += dangling_tuples_right.back().size();
+      dangling_tuples_table_B_count_ += dangling_tuples_right.back().size();
     }
 
     for (ChunkId left_chunk_id = 0; left_chunk_id < LeftInputTable()->ChunkCount(); ++left_chunk_id) {
@@ -98,7 +105,7 @@ void SortedMergeJoinOperator::FillPositionLists() {
       const auto left_typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(left_abstract_segment);
       const auto left_segment_values = left_typed_segment->Values();
 
-      dangling_tuples_left_.emplace_back(left_input_chunk->Size(), true);
+      dangling_tuples_table_A_.emplace_back(left_input_chunk->Size(), true);
 
       for (ChunkId right_chunk_id = 0; right_chunk_id < RightInputTable()->ChunkCount(); ++right_chunk_id) {
         const auto right_input_chunk = RightInputTable()->GetChunk(right_chunk_id);
@@ -138,15 +145,15 @@ void SortedMergeJoinOperator::FillPositionLists() {
                  left_match_index <= left_segment_values_index; ++left_match_index) {
               position_lists_[right_chunk_id].emplace_back(RowId(left_chunk_id, left_match_index),
                                                            right_segment_values_index);
-              if (dangling_tuples_left_[left_chunk_id][left_match_index]) {
-                dangling_tuples_left_[left_chunk_id][left_match_index] = false;
-                dangling_tuples_left_count_--;
+              if (dangling_tuples_table_A_[left_chunk_id][left_match_index]) {
+                dangling_tuples_table_A_[left_chunk_id][left_match_index] = false;
+                dangling_tuples_table_A_count_--;
               }
             }
 
             if (dangling_tuples_right[right_chunk_id][right_segment_values_index]) {
               dangling_tuples_right[right_chunk_id][right_segment_values_index] = false;
-              dangling_tuples_right_count_--;
+              dangling_tuples_table_B_count_--;
             }
           }
 
@@ -156,11 +163,11 @@ void SortedMergeJoinOperator::FillPositionLists() {
     }
 
     for (ChunkId right_chunk_id = 0; right_chunk_id < RightInputTable()->ChunkCount(); ++right_chunk_id) {
-      dangling_tuples_right_offsets_.emplace_back();
+      dangling_tuples_table_B_offsets_.emplace_back();
       for (size_t right_chunk_offset = 0; right_chunk_offset < dangling_tuples_right[right_chunk_id].size();
            right_chunk_offset++) {
         if (dangling_tuples_right[right_chunk_id][right_chunk_offset]) {
-          dangling_tuples_right_offsets_.back().emplace_back(right_chunk_offset);
+          dangling_tuples_table_B_offsets_.back().emplace_back(right_chunk_offset);
         }
       }
     }

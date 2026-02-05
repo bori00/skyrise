@@ -87,8 +87,10 @@ void HashJoinOperator::FillPositionLists() {
      * Currently, the HashJoin only supports simple predicates with equality in one column per table.
      *
      * This data-structure associates every value of the Column that forms the Join-Predicate for the
-     * left table with the RowIds of the Rows, where this value is present.
+     * table_A with the RowIds of the Rows, where this value is present.
      * Hint: RowId = (ChunkIndex, ChunkOffset)
+     *
+     * Table_A is selected as the smaller table based on row count out of the left and right table.
      *
      * Resulting Build Table for the aforementioned example (see top of method):
      *    1 => [(0,0)]
@@ -98,13 +100,38 @@ void HashJoinOperator::FillPositionLists() {
      */
     std::unordered_multimap<ColumnDataType, RowId> build_table;
 
-    for (ChunkId i = 0; i < LeftInputTable()->ChunkCount(); ++i) {
-      const auto input_chunk = LeftInputTable()->GetChunk(i);
+    auto build_side_table = LeftInputTable();
+    auto probe_side_table = RightInputTable();
+    table_A_matches_left = true;
+
+    if (LeftInputTable()->RowCount() > RightInputTable()->RowCount()) {
+      // if the left table turns out to be larger than the right one, then use the right table as the build side and the
+      // left table as the probe side, to save memory
+
+      table_A_matches_left = false;
+      table_A = RightInputTable();
+      table_B = LeftInputTable();
+      build_side_table = RightInputTable();
+      probe_side_table = LeftInputTable();
+      AWS_LOGSTREAM_INFO("HashJoinOperator", "Switch the left and right side of the tables");
+    } else {
+      table_A = LeftInputTable();
+      table_B = RightInputTable();
+      AWS_LOGSTREAM_INFO("HashJoinOperator", "Don't switch the left and right side of the tables");
+    }
+
+    dangling_tuples_table_A_count_ = build_side_table->RowCount();
+    dangling_tuples_table_A_.reserve(build_side_table->ChunkCount());
+    dangling_tuples_table_B_count_ = 0;
+    dangling_tuples_table_B_offsets_.reserve(RightInputTable()->ChunkCount());
+
+    for (ChunkId i = 0; i < build_side_table->ChunkCount(); ++i) {
+      const auto input_chunk = build_side_table->GetChunk(i);
       const auto abstract_segment = input_chunk->GetSegment(predicate_->column_id_left);
       const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
       const auto segment_values = typed_segment->Values();
 
-      dangling_tuples_left_.emplace_back(input_chunk->Size(), true);
+      dangling_tuples_table_A_.emplace_back(input_chunk->Size(), true);
 
       for (ChunkOffset j = 0; j < segment_values.size(); ++j) {
         build_table.emplace(segment_values[j], RowId{.chunk_id = i, .chunk_offset = j});
@@ -113,14 +140,14 @@ void HashJoinOperator::FillPositionLists() {
 
     /*
      * In the probe phase, the join matches are identified and thus the position lists are created.
-     * This is achieved by iterating over the rows of the right table. For each row r, the following
-     * algorithm looks up in the build table which RowIds of the left table are associated with the
+     * This is achieved by iterating over the rows of the table_B. For each row r, the following
+     * algorithm looks up in the build table which RowIds of the table_A are associated with the
      * value of the join column in r.
      *
-     * In addition, all rows of the left table are marked as true if they have at least one join
+     * In addition, all rows of the table A are marked as true if they have at least one join
      * match.
      */
-    for (ChunkId i = 0; i < RightInputTable()->ChunkCount(); ++i) {
+    for (ChunkId i = 0; i < probe_side_table->ChunkCount(); ++i) {
       const auto input_chunk = RightInputTable()->GetChunk(i);
       const auto abstract_segment = input_chunk->GetSegment(predicate_->column_id_right);
       const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
@@ -134,22 +161,22 @@ void HashJoinOperator::FillPositionLists() {
         if (matches.first == matches.second) {
           // No matches for tuple with RowId (i,j) of the right table were found.
           dangling_offsets_in_segment.emplace_back(j);
-          dangling_tuples_right_count_++;
+          dangling_tuples_table_B_count_++;
           continue;
         }
 
         for (auto it = matches.first; it != matches.second; ++it) {
-          if (dangling_tuples_left_[it->second.chunk_id][it->second.chunk_offset]) {
-            dangling_tuples_left_count_--;
-            // Mark corresponding tuple of left table as matched.
-            dangling_tuples_left_[it->second.chunk_id][it->second.chunk_offset] = false;
+          if (dangling_tuples_table_A_[it->second.chunk_id][it->second.chunk_offset]) {
+            dangling_tuples_table_A_count_--;
+            // Mark corresponding tuple of table_A as matched.
+            dangling_tuples_table_A_[it->second.chunk_id][it->second.chunk_offset] = false;
           }
           position_lists_[i].emplace_back(RowId{it->second.chunk_id, it->second.chunk_offset}, j);
         }
       }
 
       // Add ChunkOffsets to ChunkIndex=i to indicate which tuples had no match.
-      dangling_tuples_right_offsets_.emplace_back(dangling_offsets_in_segment);
+      dangling_tuples_table_B_offsets_.emplace_back(dangling_offsets_in_segment);
     }
   });
 }
