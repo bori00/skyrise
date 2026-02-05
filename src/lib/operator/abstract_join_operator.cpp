@@ -99,15 +99,12 @@ std::shared_ptr<const Table> AbstractJoinOperator::OnExecute(
 
 void AbstractJoinOperator::InitializeAuxiliaryDataStructures() {
   position_lists_ = PositionLists(RightInputTable()->ChunkCount());
-  dangling_tuples_left_count_ = LeftInputTable()->RowCount();
-  dangling_tuples_left_.reserve(LeftInputTable()->ChunkCount());
-  dangling_tuples_right_count_ = 0;
-  dangling_tuples_right_offsets_.reserve(RightInputTable()->ChunkCount());
 }
 
 void AbstractJoinOperator::MaterializeMatches(const size_t result_column_count, const size_t result_row_count,
                                               std::vector<std::shared_ptr<Chunk>>& output_chunks) {
-  Assert(dangling_tuples_right_offsets_.size() == RightInputTable()->ChunkCount(),
+  Assert((table_A_matches_left && dangling_tuples_table_B_offsets_.size() == RightInputTable()->ChunkCount()) ||
+             (!table_A_matches_left && dangling_tuples_table_B_offsets_.size() == LeftInputTable()->ChunkCount()),
          "PositionLists must be filled before materialization.");
 
   Segments output_segments;
@@ -121,16 +118,34 @@ void AbstractJoinOperator::MaterializeMatches(const size_t result_column_count, 
 
 void AbstractJoinOperator::MaterializeLeftSideOfMatchedTuples(const size_t result_row_count,
                                                               Segments& output_segments) {
-  for (ColumnCount i = 0; i < LeftInputTable()->GetColumnCount(); ++i) {
+  if (table_A_matches_left) {
+    MaterializeTableASideOfMatchedTuples(result_row_count, output_segments);
+  } else {
+    MaterializeTableBSideOfMatchedTuples(result_row_count, output_segments);
+  }
+}
+
+void AbstractJoinOperator::MaterializeRightSideOfMatchedTuples(const size_t result_row_count,
+                                                               Segments& output_segments) {
+  if (table_A_matches_left) {
+    MaterializeTableBSideOfMatchedTuples(result_row_count, output_segments);
+  } else {
+    MaterializeTableASideOfMatchedTuples(result_row_count, output_segments);
+  }
+}
+
+void AbstractJoinOperator::MaterializeTableASideOfMatchedTuples(const size_t result_row_count,
+                                                                Segments& output_segments) {
+  for (ColumnCount i = 0; i < table_A->GetColumnCount(); ++i) {
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
-    ResolveDataType(LeftInputTable()->ColumnDataType(i), [&](auto data_type) {
+    ResolveDataType(table_A->ColumnDataType(i), [&](auto data_type) {
       using ColumnDataType = decltype(data_type);
 
       std::vector<std::vector<ColumnDataType>*> input_segments;
-      input_segments.reserve(LeftInputTable()->ChunkCount());
+      input_segments.reserve(table_A->ChunkCount());
 
-      for (ChunkId j = 0; j < LeftInputTable()->ChunkCount(); ++j) {
-        const auto abstract_segment = LeftInputTable()->GetChunk(j)->GetSegment(i);
+      for (ChunkId j = 0; j < table_A->ChunkCount(); ++j) {
+        const auto abstract_segment = table_A->GetChunk(j)->GetSegment(i);
         const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
         input_segments.push_back(&typed_segment->Values());
       }
@@ -150,18 +165,18 @@ void AbstractJoinOperator::MaterializeLeftSideOfMatchedTuples(const size_t resul
   }
 }
 
-void AbstractJoinOperator::MaterializeRightSideOfMatchedTuples(const size_t result_row_count,
-                                                               Segments& output_segments) {
-  for (ColumnCount i = 0; i < RightInputTable()->GetColumnCount(); ++i) {
+void AbstractJoinOperator::MaterializeTableBSideOfMatchedTuples(const size_t result_row_count,
+                                                                Segments& output_segments) {
+  for (ColumnCount i = 0; i < table_B->GetColumnCount(); ++i) {
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
-    ResolveDataType(RightInputTable()->ColumnDataType(i), [&](auto data_type) {
+    ResolveDataType(table_B->ColumnDataType(i), [&](auto data_type) {
       using ColumnDataType = decltype(data_type);
 
       std::vector<ColumnDataType> output_segment_values;
       output_segment_values.reserve(result_row_count);
 
-      for (ChunkId j = 0; j < RightInputTable()->ChunkCount(); ++j) {
-        const auto abstract_segment = RightInputTable()->GetChunk(j)->GetSegment(i);
+      for (ChunkId j = 0; j < table_B->ChunkCount(); ++j) {
+        const auto abstract_segment = table_B->GetChunk(j)->GetSegment(i);
         const auto typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
         const auto segment_values = typed_segment->Values();
 
@@ -177,8 +192,30 @@ void AbstractJoinOperator::MaterializeRightSideOfMatchedTuples(const size_t resu
 
 void AbstractJoinOperator::MaterializeDanglingTuplesOfLeftTable(const size_t result_column_count,
                                                                 std::vector<std::shared_ptr<Chunk>>& output_chunks) {
+  if (table_A_matches_left) {
+    MaterializeDanglingTuplesOfTableA(result_column_count, output_chunks);
+  } else {
+    MaterializeDanglingTuplesOfTableB(result_column_count, output_chunks);
+  }
+}
+
+void AbstractJoinOperator::MaterializeDanglingTuplesOfRightTable(const size_t result_column_count,
+                                                                 std::vector<std::shared_ptr<Chunk>>& output_chunks) {
+  if (table_A_matches_left) {
+    MaterializeDanglingTuplesOfTableB(result_column_count, output_chunks);
+  } else {
+    MaterializeDanglingTuplesOfTableA(result_column_count, output_chunks);
+  }
+}
+
+void AbstractJoinOperator::MaterializeDanglingTuplesOfTableA(const size_t result_column_count,
+                                                             std::vector<std::shared_ptr<Chunk>>& output_chunks) {
   Segments segments;
   segments.reserve(result_column_count);
+
+  if (!table_A_matches_left) {
+    AppendNullFilledSegmentsForRowsOfTable(segments, table_B, dangling_tuples_table_A_count_);
+  }
 
   for (ColumnCount i = 0; i < LeftInputTable()->GetColumnCount(); ++i) {
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
@@ -186,7 +223,7 @@ void AbstractJoinOperator::MaterializeDanglingTuplesOfLeftTable(const size_t res
       using ColumnDataType = decltype(data_type);
 
       std::vector<ColumnDataType> dangling_segment_values;
-      dangling_segment_values.reserve(dangling_tuples_left_count_);
+      dangling_segment_values.reserve(dangling_tuples_table_A_count_);
 
       for (ChunkId j = 0; j < LeftInputTable()->ChunkCount(); ++j) {
         const auto& abstract_segment = LeftInputTable()->GetChunk(j)->GetSegment(i);
@@ -194,7 +231,7 @@ void AbstractJoinOperator::MaterializeDanglingTuplesOfLeftTable(const size_t res
         const auto& segment_values = typed_segment->Values();
 
         for (ChunkOffset k = 0; k < LeftInputTable()->GetChunk(j)->Size(); ++k) {
-          if (dangling_tuples_left_[j][k]) {
+          if (dangling_tuples_table_A_[j][k]) {
             dangling_segment_values.push_back(segment_values[k]);
           }
         }
@@ -204,17 +241,21 @@ void AbstractJoinOperator::MaterializeDanglingTuplesOfLeftTable(const size_t res
     });
   }
 
-  AppendNullFilledSegmentsForRowsOfTable(segments, RightInputTable(), dangling_tuples_left_count_);
+  if (table_A_matches_left) {
+    AppendNullFilledSegmentsForRowsOfTable(segments, table_B, dangling_tuples_table_A_count_);
+  }
 
   output_chunks.emplace_back(std::make_shared<Chunk>(std::move(segments)));
 }
 
-void AbstractJoinOperator::MaterializeDanglingTuplesOfRightTable(const size_t result_column_count,
-                                                                 std::vector<std::shared_ptr<Chunk>>& output_chunks) {
+void AbstractJoinOperator::MaterializeDanglingTuplesOfTableB(const size_t result_column_count,
+                                                             std::vector<std::shared_ptr<Chunk>>& output_chunks) {
   Segments segments;
   segments.reserve(result_column_count);
 
-  AppendNullFilledSegmentsForRowsOfTable(segments, LeftInputTable(), dangling_tuples_right_count_);
+  if (table_A_matches_left) {
+    AppendNullFilledSegmentsForRowsOfTable(segments, table_A, dangling_tuples_table_B_count_);
+  }
 
   for (ColumnCount i = 0; i < RightInputTable()->GetColumnCount(); ++i) {
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
@@ -228,13 +269,17 @@ void AbstractJoinOperator::MaterializeDanglingTuplesOfRightTable(const size_t re
         const auto& typed_segment = std::dynamic_pointer_cast<ValueSegment<ColumnDataType>>(abstract_segment);
         const auto& segment_values = typed_segment->Values();
 
-        for (ColumnId& offset : dangling_tuples_right_offsets_[k]) {
+        for (ColumnId& offset : dangling_tuples_table_B_offsets_[k]) {
           dangling_segment_values.push_back(segment_values[offset]);
         }
       }
 
       segments.push_back(std::make_shared<ValueSegment<ColumnDataType>>(std::move(dangling_segment_values)));
     });
+  }
+
+  if (!table_A_matches_left) {
+    AppendNullFilledSegmentsForRowsOfTable(segments, table_A, dangling_tuples_table_B_count_);
   }
 
   output_chunks.emplace_back(std::make_shared<Chunk>(std::move(segments)));
