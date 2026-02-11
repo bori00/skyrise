@@ -106,6 +106,8 @@ std::shared_ptr<PqpPipeline> TpchPqpGenerator::GeneratePipeline(const std::strin
                                                                 const FileFormat& export_format,
                                                                 std::vector<ObjectReference> input_objects,
                                                                 std::vector<ObjectReference> output_objects) {
+  Assert(input_objects.size() >= output_objects.size(),
+         "In each pipeline, each fragment must have at least one input file.");
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> worker_input_mappings;
   worker_input_mappings.resize(output_objects.size());
   std::string input_id;
