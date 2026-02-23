@@ -163,7 +163,7 @@ bool CoordinatorFunction::ValidateRequest(const Aws::Utils::Json::JsonView& requ
 }
 
 aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
-    const Aws::Utils::Json::JsonView& request) const {
+    const Aws::Utils::Json::JsonView& request, std::optional<std::shared_ptr<RequestTracker>> request_tracker) const {
   AWS_LOGSTREAM_DEBUG(kCoordinatorTag.c_str(), std::string("Coordinator request: ") + request.WriteCompact());
   if (!ValidateRequest(request)) {
     return aws::lambda_runtime::invocation_response::failure("Invalid parameters provided.", "text/plain");
@@ -204,6 +204,8 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
 
     auto cost_calculator =
         std::make_shared<const CostCalculator>(client->GetPricingClient(), client->GetClientRegion());
+
+    // Get Lambda compute costs.
     double coordinator_cost = cost_calculator->CalculateCostLambda(execution_runtime_ms, coordinator_memory_size_mb);
     double worker_cost = cost_calculator->CalculateCostLambda(worker_statistics.worker_accumulated_runtime_ms,
                                                               worker_statistics.worker_memory_size_mb);
@@ -216,8 +218,54 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
         .WithInteger(kCoordinatorResponseWorkerInvocationCountAttribute, worker_statistics.worker_invocation_count)
         .WithInteger(kCoordinatorResponseWorkerAccumulatedRuntimeAttribute,
                      worker_statistics.worker_accumulated_runtime_ms)
-        .WithDouble("execution_cost_cent", compute_cost)
+        .WithDouble("execution_cost_cent", compute_cost);
+
+    Aws::Utils::Json::JsonValue request_count_statistics;
+    size_t SQS_requests_count = 0;
+    size_t S3_tier1_requests_count = 0;
+    size_t S3_tier2_requests_count = 0;
+    // add request counts from the workers
+    for (auto const& [request_name, request_count] : worker_statistics.worker_accumulated_request_counts) {
+      request_count_statistics.WithInt64(request_name, request_count);
+      if (request_name.starts_with("SQS")) {
+        SQS_requests_count += request_count;
+      } else if (request_name.starts_with("S3")) {
+        if (request_name == "S3:PutObject")
+          S3_tier1_requests_count += request_count;
+        else
+          S3_tier2_requests_count += request_count;
+      }
+    }
+
+    // add request counts from the coordinator
+    if (request_tracker.has_value()) {
+      for (auto const& [request_name, request_statistics] : request_tracker.value()->GetRequests()) {
+        if (request_name.starts_with("SQS")) {
+          SQS_requests_count += request_statistics.finished;
+        } else if (request_name.starts_with("S3")) {
+          if (request_name == "S3:PutObject")
+            S3_tier1_requests_count += request_statistics.finished;
+          else
+            S3_tier2_requests_count += request_statistics.finished;
+        }
+      }
+    }
+
+    double s3_requests_cost =
+        cost_calculator->CalculateCostS3Requests(S3_tier1_requests_count, S3_tier2_requests_count);
+
+    double sqs_requests_cost = cost_calculator->CalculateCostSQSRequests(SQS_requests_count);
+
+    serialized_statistics.WithInt64("s3_tier1_requests_count", S3_tier1_requests_count)
+        .WithInt64("s3_tier2_requests_count", S3_tier2_requests_count)
+        .WithDouble("s3_request_costs", s3_requests_cost)
+        .WithInt64("sqs_requests_count", SQS_requests_count)
+        .WithDouble("sqs_requests_cost", sqs_requests_cost)
+        .WithDouble("total_cost", sqs_requests_cost + s3_requests_cost + compute_cost)
+        .WithObject("worker_request_counts", request_count_statistics)
         .WithObject("pipelines_stats", GetPipelineWorkerStatisticsJson(worker_statistics));
+
+    // TODO; add lambda requests costs
 
     response.WithObject(kCoordinatorResponseResultObjectAttribute, result->ToJson())
         .WithString(kCoordinatorResponseResultUrlStringAttribute, result_url)

@@ -8,7 +8,8 @@
 namespace skyrise {
 
 aws::lambda_runtime::invocation_response SimpleFunction::OnHandleRequest(
-    const Aws::Utils::Json::JsonView& request) const {
+    const Aws::Utils::Json::JsonView& request,
+    std::optional<std::shared_ptr<RequestTracker>> /* request_tracker */) const {
   // Sleep for a specified amount of time to prevent instance reuse.
   size_t sleep_duration_seconds = 0;
   if (request.KeyExists("sleep") && request.KeyExists("concurrency_duration_seconds")) {
