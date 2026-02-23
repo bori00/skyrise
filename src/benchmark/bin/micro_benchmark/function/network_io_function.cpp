@@ -94,7 +94,8 @@ void NetworkIoFunction::CreateAndRunIperfTest(
 }
 
 aws::lambda_runtime::invocation_response NetworkIoFunction::OnHandleRequest(
-    const Aws::Utils::Json::JsonView& request) const {
+    const Aws::Utils::Json::JsonView& request,
+    std::optional<std::shared_ptr<RequestTracker>> /*request_tracker*/) const {
   const std::string invocation_start_timestamp = GetFormattedTimestamp("%Y%m%dT%H%M%S");
   const FunctionHostInformationCollectorConfiguration config;
   FunctionHostInformationCollector collector{config};

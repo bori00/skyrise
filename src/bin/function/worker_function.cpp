@@ -69,7 +69,8 @@ void WorkerFunction::InvokeRecursive(const Aws::Utils::Json::JsonView& request,
 }
 
 aws::lambda_runtime::invocation_response WorkerFunction::OnHandleRequest(
-    const Aws::Utils::Json::JsonView& request) const {
+    const Aws::Utils::Json::JsonView& request,
+    std::optional<std::shared_ptr<RequestTracker>> /* request_tracker */) const {
   const auto runtime_start = std::chrono::steady_clock::now();
 
   AWS_LOGSTREAM_DEBUG(kWorkerTag.c_str(), std::string("Worker request: ") + request.WriteCompact());

@@ -36,6 +36,12 @@ struct Ec2Pricing {
   long double price_per_hour;
 };
 
+struct PricingSqs {
+  long double price_standard_requests;
+  long double price_fifo_requests;
+  long double price_fair_requests;
+};
+
 namespace usage_type_lambda {
 inline const std::string kRequestArm{"Request-ARM"};
 inline const std::string kRequestX86{"Request"};
@@ -61,6 +67,12 @@ inline const std::string kXrayTracesAccessed{"XRay-TracesAccessed"};
 inline const std::string kXrayTracesStored{"XRay-TracesStored"};
 }  // namespace usage_type_xray
 
+namespace usage_type_sqs {
+inline auto kStandardRequests = "Requests-RBP";
+inline auto kFifoRequests = "Requests-FIFO-RBP";
+inline auto kFairRequests = "Requests-Fair-RBP";
+}  // namespace usage_type_sqs
+
 /*
  * The Pricing class fetches and stores pricing information for the AWS services that Skyrise is built on using the AWS
  * Pricing SDK. The ClientConfiguration contains the region of the Price List endpoint to speak to. From the currently
@@ -75,6 +87,7 @@ class Pricing {
   const std::shared_ptr<PricingLambda>& GetLambdaPricing() const;
   const std::shared_ptr<PricingS3>& GetS3Pricing() const;
   const std::shared_ptr<PricingXray>& GetXrayPricing() const;
+  const std::shared_ptr<PricingSqs>& GetSqsPricing() const;
 
  private:
   std::map<Aws::String, long double> FetchPricing(
@@ -90,6 +103,7 @@ class Pricing {
   std::shared_ptr<PricingLambda> pricing_lambda_;
   std::shared_ptr<PricingS3> pricing_s3_;
   std::shared_ptr<PricingXray> pricing_xray_;
+  std::shared_ptr<PricingSqs> pricing_sqs_;
 
   static inline const std::unordered_map<Aws::String, Aws::String> kRegionToLocation = {
       {Aws::Region::AWS_GLOBAL, "Global"},

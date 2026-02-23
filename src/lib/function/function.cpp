@@ -90,7 +90,7 @@ void Function::HandleRequest() const {
 
     auto response = aws::lambda_runtime::invocation_response::failure("", "application/json");
     try {
-      response = HandlerFunction(request_copy);
+      response = HandlerFunction(request_copy, request_tracker);
       /**
        * If HandlerFunction() returns a response that is a valid JSON object,
        * the response is extended by introspection and (optional) metering information.
@@ -164,7 +164,8 @@ void Function::MemoryAllocationExceptionHandler() {
 }
 
 aws::lambda_runtime::invocation_response Function::HandlerFunction(
-    const aws::lambda_runtime::invocation_request& request) const {
+    const aws::lambda_runtime::invocation_request& request,
+    std::optional<std::shared_ptr<RequestTracker>> request_tracker) const {
   const auto json_value = Aws::Utils::Json::JsonValue(request.payload);
   const auto json_view = json_value.View();
 
@@ -173,7 +174,7 @@ aws::lambda_runtime::invocation_response Function::HandlerFunction(
     return aws::lambda_runtime::invocation_response::success(json_view.WriteCompact(), "application/json");
   }
 
-  return OnHandleRequest(json_view);
+  return OnHandleRequest(json_view, request_tracker);
 }
 
 }  // namespace skyrise

@@ -6,7 +6,9 @@ namespace skyrise {
 
 class NetworkIoFunction : public Function {
  protected:
-  aws::lambda_runtime::invocation_response OnHandleRequest(const Aws::Utils::Json::JsonView& request) const override;
+  aws::lambda_runtime::invocation_response OnHandleRequest(
+      const Aws::Utils::Json::JsonView& request,
+      std::optional<std::shared_ptr<RequestTracker>> request_tracker) const override;
 
  private:
   static void CreateAndRunIperfTest(const size_t target_throughput_mbps, const int concurrent_instance_count,
