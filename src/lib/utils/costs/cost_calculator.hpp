@@ -31,14 +31,21 @@ class CostCalculator {
   long double CalculateCostXray(const size_t stored_functions, const size_t scanned_functions,
                                 const size_t accessed_functions) const;
 
+  long double CalculateCostLambdaRequests(const size_t request_count) const;
+
   /*
    * Any storage capacity that is being used on S3 is billed for at least a whole month - even if it's only stored for a
    * minute (cf. https://forums.aws.amazon.com/thread.jspa?threadID=118983). At this point, we only use the first
    * storage pricing unit (0-50TB) to guarantee comparability between calculations.
+   *
+   * Update: as of 18/02/2026, the comment above aboyt theut the 30 days minimum billed duration is only applicable t o
+   * the infInfrequent Access (IA) S3 tier, not to the Stan
    */
   long double CalculateCostS3StorageMonthly(const size_t used_storage_bytes, const size_t hours) const;
   long double CalculateCostS3Requests(const size_t requests_tier1, const size_t requests_tier2) const;
   long double CalculateCostS3Select(const size_t returned_bytes, const size_t scanned_bytes) const;
+
+  long double CalculateCostSQSRequests(const size_t standard_requests_count) const;
 
   static double RoundTo(double value, double precision = 1.0);
 

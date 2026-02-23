@@ -43,6 +43,11 @@ long double CostCalculator::CalculateCostLambdaProvisionedConcurrencyRounded(
   return cost;
 }
 
+long double CostCalculator::CalculateCostLambdaRequests(const size_t request_count) const {
+  const auto& pricing = pricing_.GetLambdaPricing();
+  return request_count * pricing->price_request;
+}
+
 long double CostCalculator::CalculateCostS3StorageMonthly(const size_t used_storage_bytes, const size_t hours) const {
   const auto& pricing = pricing_.GetS3Pricing();
   const long double gb_months = ByteToGB(used_storage_bytes) * (hours / 24.0L / 30.0L);
@@ -87,6 +92,11 @@ long double CostCalculator::CalculateCostEc2(const size_t compute_duration_ms,
 
   return compute_duration_ms <= 60000 ? price_per_minute
                                       : price_per_second * std::ceil(((long double)compute_duration_ms / 1000.0L));
+}
+
+long double CostCalculator::CalculateCostSQSRequests(const size_t standard_requests_count) const {
+  const auto& pricing = pricing_.GetSqsPricing();
+  return standard_requests_count * pricing->price_standard_requests;
 }
 
 }  // namespace skyrise

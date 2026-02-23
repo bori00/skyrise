@@ -47,6 +47,12 @@ Pricing::Pricing(std::shared_ptr<const Aws::Pricing::PricingClient> pricing_clie
   pricing_xray_ = std::make_shared<PricingXray>(
       PricingXray{.price_per_accessed_trace = pricing_xray_map.at(usage_type_xray::kXrayTracesAccessed),
                   .price_per_stored_trace = pricing_xray_map.at(usage_type_xray::kXrayTracesStored)});
+
+  const auto pricing_sqs_map = FetchPricing("AWSQueueService");
+  pricing_sqs_ = std::make_shared<PricingSqs>(
+      PricingSqs{.price_standard_requests = pricing_sqs_map.at(usage_type_sqs::kStandardRequests),
+                 .price_fifo_requests = pricing_sqs_map.at(usage_type_sqs::kFifoRequests),
+                 .price_fair_requests = pricing_sqs_map.at(usage_type_sqs::kFairRequests)});
 }
 
 const std::shared_ptr<PricingLambda>& Pricing::GetLambdaPricing() const { return pricing_lambda_; }
@@ -54,6 +60,8 @@ const std::shared_ptr<PricingLambda>& Pricing::GetLambdaPricing() const { return
 const std::shared_ptr<PricingS3>& Pricing::GetS3Pricing() const { return pricing_s3_; }
 
 const std::shared_ptr<PricingXray>& Pricing::GetXrayPricing() const { return pricing_xray_; }
+
+const std::shared_ptr<PricingSqs>& Pricing::GetSqsPricing() const { return pricing_sqs_; }
 
 std::map<Aws::String, long double> Pricing::FetchPricing(
     const Aws::String& service_code, const std::optional<Aws::EC2::Model::InstanceType>& ec2_instance_type) const {
