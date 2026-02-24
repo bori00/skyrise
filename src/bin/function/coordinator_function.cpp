@@ -101,6 +101,7 @@ struct WorkerStatistics final {
   size_t worker_memory_size_mb{0};
   size_t worker_invocation_count{0};
   size_t worker_accumulated_runtime_ms{0};
+  size_t fragments_count{0};
   std::map<std::string, size_t> worker_accumulated_request_counts;
   std::map<std::string, PipelineWorkerStatistics> pipeline_workers_statistics;
 };
@@ -125,6 +126,7 @@ WorkerStatistics GetWorkerStatistics(const std::vector<std::shared_ptr<skyrise::
         GetPipelineWorkerStatistics(pipeline_task);
 
     for (const auto& fragment_execution_result : fragment_execution_results) {
+      statistics.fragments_count++;
       statistics.worker_accumulated_runtime_ms += fragment_execution_result->runtime_ms;
 
       const auto& metering = fragment_execution_result->metering.View();
@@ -162,11 +164,10 @@ bool CoordinatorFunction::ValidateRequest(const Aws::Utils::Json::JsonView& requ
          request.KeyExists(kCoordinatorRequestQueryConfigurationAttribute);
 }
 
-void AddCostStatisticsToQueryResult(size_t coordinator_runtime_ms, size_t coordinator_memory_size_mb,
-                                    const WorkerStatistics& worker_statistics,
-                                    const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
-                                    Aws::Utils::Json::JsonValue& query_result,
-                                    const std::shared_ptr<const CostCalculator> cost_calculator);
+static void AddCostStatisticsToQueryResult(
+    size_t coordinator_runtime_ms, size_t coordinator_memory_size_mb, const WorkerStatistics& worker_statistics,
+    const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
+    Aws::Utils::Json::JsonValue& query_result, const std::shared_ptr<const CostCalculator> cost_calculator);
 
 aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
     const Aws::Utils::Json::JsonView& request, std::optional<std::shared_ptr<RequestTracker>> request_tracker) const {
@@ -237,11 +238,10 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
   return aws::lambda_runtime::invocation_response::success(response.View().WriteCompact(), "application/json");
 }
 
-void AddCostStatisticsToQueryResult(size_t coordinator_runtime_ms, size_t coordinator_memory_size_mb,
-                                    const WorkerStatistics& worker_statistics,
-                                    const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
-                                    Aws::Utils::Json::JsonValue& query_result,
-                                    const std::shared_ptr<const CostCalculator> cost_calculator) {
+static void AddCostStatisticsToQueryResult(
+    size_t coordinator_runtime_ms, size_t coordinator_memory_size_mb, const WorkerStatistics& worker_statistics,
+    const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
+    Aws::Utils::Json::JsonValue& query_result, const std::shared_ptr<const CostCalculator> cost_calculator) {
   // Get Lambda compute costs.
   double coordinator_cost = cost_calculator->CalculateCostLambda(coordinator_runtime_ms, coordinator_memory_size_mb);
   double worker_cost = cost_calculator->CalculateCostLambda(worker_statistics.worker_accumulated_runtime_ms,
@@ -253,7 +253,7 @@ void AddCostStatisticsToQueryResult(size_t coordinator_runtime_ms, size_t coordi
   size_t S3_tier1_requests_count = 0;
   size_t S3_tier2_requests_count = 0;
   size_t lambda_requests_count =
-      1 /* coordinator invocation */ + worker_statistics.pipeline_workers_statistics.size() /* worker invocations */;
+      1 /* coordinator invocation */ + worker_statistics.fragments_count /* worker invocations */;
   // TODO(bori00): consider the case when because of invocation errors, the same error gets invoked multiple times
 
   // add request counts from the workers
