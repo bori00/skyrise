@@ -46,13 +46,27 @@ class ParquetOutputProxy : public arrow::io::OutputStream {
 struct ParquetFormatWriterOptions {
   parquet::Compression::type compression = parquet::Compression::ZSTD;
   int compression_level = arrow::util::Codec::UseDefaultCompressionLevel();
+  const bool consolidate_row_groups = false;
+
+  /**
+   * Target size for a row group. Considers the uncompressed estimated row sizes.
+   * Chunks passed to the writted will be merged as long as their total estimated size reacher the
+   * kRowGroupSizeThresholdBytes at least. Once the threshold is surpassed, the chunks will be written out as a chunk.
+   * Applied only if consolidate_row_groups_ set to true, else each chunk will be mapped to exactly one row group.
+   */
+  const size_t kRowGroupSizeThresholdBytes = 128LL * 1024LL * 1024LL;
+
+  explicit ParquetFormatWriterOptions(const bool consolidate_row_groups)
+      : consolidate_row_groups(consolidate_row_groups) {}
+
+  ParquetFormatWriterOptions() = delete;
 };
 
 class ParquetFormatWriter : public AbstractFormatWriter {
  public:
   using Configuration = ParquetFormatWriterOptions;
 
-  explicit ParquetFormatWriter(Configuration config = Configuration());
+  explicit ParquetFormatWriter(Configuration config);
 
   void Initialize(const TableColumnDefinitions& skyrise_schema) override;
   void ProcessChunk(std::shared_ptr<const Chunk> chunk) override;
@@ -67,6 +81,14 @@ class ParquetFormatWriter : public AbstractFormatWriter {
 
   template <typename SegmentType, typename VectorBatchType>
   void GenericCopySegmentToParquetColumn(SegmentType* segment, VectorBatchType* column_writer);
+
+  void FlushBuffer();
+
+  // Helper to estimate the size of a chunk in bytes
+  static size_t EstimateChunkSize(const std::shared_ptr<const Chunk>& chunk);
+
+  std::vector<std::shared_ptr<const Chunk>> chunk_buffer_;
+  size_t estimated_buffered_bytes_ = 0;
 
   Configuration config_;
 
