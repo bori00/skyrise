@@ -50,11 +50,16 @@ struct ParquetFormatWriterOptions {
 
   /**
    * Target size for a row group. Considers the uncompressed estimated row sizes.
-   * Chunks passed to the writted will be merged as long as their total estimated size reacher the
+   * Chunks passed to the writted will be merged as long as their total estimated size reached the
    * kRowGroupSizeThresholdBytes at least. Once the threshold is surpassed, the chunks will be written out as a chunk.
    * Applied only if consolidate_row_groups_ set to true, else each chunk will be mapped to exactly one row group.
+   *
+   * Current limit: 128GB.
+   * We noticed a compression ratio of ~2000x in some experiments, so this should result in row groups of size 128MB
+   * approximately.
+   * TODO(anyone): experimentally establish a good compression value.
    */
-  const size_t kRowGroupSizeThresholdBytes = 128LL * 1024LL * 1024LL;
+  const size_t kRowGroupSizeThresholdBytes = 128LL * 1024LL * 1024LL * 1024LL;
 
   explicit ParquetFormatWriterOptions(const bool consolidate_row_groups)
       : consolidate_row_groups(consolidate_row_groups) {}
