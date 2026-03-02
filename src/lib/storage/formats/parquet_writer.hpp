@@ -59,7 +59,7 @@ struct ParquetFormatWriterOptions {
   explicit ParquetFormatWriterOptions(const bool consolidate_row_groups)
       : consolidate_row_groups(consolidate_row_groups) {}
 
-  ParquetFormatWriterOptions() = delete;
+  ParquetFormatWriterOptions() : consolidate_row_groups(false) {}
 };
 
 class ParquetFormatWriter : public AbstractFormatWriter {

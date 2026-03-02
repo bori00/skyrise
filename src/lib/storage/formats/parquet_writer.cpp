@@ -37,8 +37,8 @@ void ParquetFormatWriter::ProcessChunk(std::shared_ptr<const Chunk> chunk) {
       FlushBuffer();
     }
   } else {
-    .  // Process chunk immediately, write it into a row group.
-        parquet::RowGroupWriter* row_group_writer = writer_->AppendRowGroup();
+    // Process chunk immediately, write it into a row group.
+    parquet::RowGroupWriter* row_group_writer = writer_->AppendRowGroup();
     for (size_t i = 0; i < chunk->GetColumnCount(); ++i) {
       const auto segment = chunk->GetSegment(i);
       parquet::ColumnWriter* column_writer = row_group_writer->NextColumn();
