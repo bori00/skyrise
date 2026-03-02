@@ -23,7 +23,7 @@ std::vector<std::shared_ptr<PqpPipeline>> EtlPqpGenerator::GeneratePqp() const {
 
   ObjectReference output_placeholder(kSkyriseTestBucket, "output.csv");
   const std::string export_id = "export";
-  const auto export_operator = std::make_shared<ExportOperatorProxy>(output_placeholder, FileFormat::kCsv);
+  const auto export_operator = std::make_shared<ExportOperatorProxy>(output_placeholder, FileFormat::kCsv, false);
   export_operator->SetLeftInput(import_operator);
   export_operator->SetIdentity(export_id);
   size_t object_count = 0;

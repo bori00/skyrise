@@ -20,7 +20,7 @@ class ExportOperatorProxyTest : public ::testing::Test {
 };
 
 TEST_F(ExportOperatorProxyTest, BaseProperties) {
-  const auto export_proxy = ExportOperatorProxy::Make(kTargetObject, kExportFormat);
+  const auto export_proxy = ExportOperatorProxy::Make(kTargetObject, kExportFormat, false);
   EXPECT_EQ(export_proxy->Type(), OperatorType::kExport);
   EXPECT_EQ(export_proxy->TargetObject(), kTargetObject);
   EXPECT_EQ(export_proxy->GetExportFormat(), kExportFormat);
@@ -28,14 +28,14 @@ TEST_F(ExportOperatorProxyTest, BaseProperties) {
 }
 
 TEST_F(ExportOperatorProxyTest, Description) {
-  const auto export_proxy = ExportOperatorProxy::Make(kTargetObject, kExportFormat);
+  const auto export_proxy = ExportOperatorProxy::Make(kTargetObject, kExportFormat, false);
 
   EXPECT_EQ(export_proxy->Description(DescriptionMode::kSingleLine), "[Export] export_bucket/export.csv");
   EXPECT_EQ(export_proxy->Description(DescriptionMode::kMultiLine), "[Export]\nexport_bucket/\nexport.csv");
 }
 
 TEST_F(ExportOperatorProxyTest, SerializeAndDeserialize) {
-  const auto proxy = ExportOperatorProxy::Make(kTargetObject, kExportFormat);
+  const auto proxy = ExportOperatorProxy::Make(kTargetObject, kExportFormat, false);
   // (1) Serialize
   const auto export_json = proxy->ToJson();
 
@@ -68,7 +68,7 @@ TEST_F(ExportOperatorProxyTest, Dummy) {
 TEST_F(ExportOperatorProxyTest, DeepCopy) {
   // clang-format off
   const auto export_proxy =
-  ExportOperatorProxy::Make(kTargetObject, FileFormat::kCsv,
+  ExportOperatorProxy::Make(kTargetObject, FileFormat::kCsv, false,
                             ImportOperatorProxy::Make(std::vector<ObjectReference>{kImportObject}, std::vector<ColumnId>{ColumnId{0}}));
 
   // clang-format on
@@ -84,11 +84,11 @@ TEST_F(ExportOperatorProxyTest, DeepCopy) {
 TEST_F(ExportOperatorProxyTest, CreateOperatorInstance) {
   // clang-format off
   const auto export_proxy_orc =
-  ExportOperatorProxy::Make(kTargetObject, FileFormat::kOrc,
+  ExportOperatorProxy::Make(kTargetObject, FileFormat::kOrc, false,
                             ImportOperatorProxy::Make(std::vector<ObjectReference>{kImportObject}, std::vector<ColumnId>{ColumnId{0}}));
 
   const auto export_proxy_csv =
-  ExportOperatorProxy::Make(kTargetObject, FileFormat::kCsv,
+  ExportOperatorProxy::Make(kTargetObject, FileFormat::kCsv, false,
                             ImportOperatorProxy::Make(std::vector<ObjectReference>{kImportObject}, std::vector<ColumnId>{ColumnId{0}}));
 
   // clang-format on

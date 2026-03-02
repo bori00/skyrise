@@ -23,7 +23,7 @@ class PqpPipelineSchedulerTest : public ::testing::Test {
         std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{object_reference}, column_ids);
     import_proxy->SetIdentity(pipeline_id);
 
-    const auto pqp = std::make_shared<ExportOperatorProxy>(object_reference, FileFormat::kOrc);
+    const auto pqp = std::make_shared<ExportOperatorProxy>(object_reference, FileFormat::kOrc, false);
     pqp->SetLeftInput(import_proxy);
     pqp->SetIdentity(pipeline_id);
 

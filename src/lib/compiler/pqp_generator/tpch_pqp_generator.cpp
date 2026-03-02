@@ -215,7 +215,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   aggregate_operator->SetLeftInput(projection_operator);
 
   const auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(aggregate_operator);
 
   const std::string pipeline_id = "pipeline-1";
@@ -277,7 +277,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(column_ids_alias, aliases);
   alias_operator->SetLeftInput(sort_operator);
 
-  const auto export_operator = std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), FileFormat::kCsv);
+  const auto export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), FileFormat::kCsv, false);
   export_operator->SetLeftInput(alias_operator);
 
   const std::string pipeline_id = "pipeline-2";
@@ -334,8 +335,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto filter_operator1 = std::make_shared<FilterOperatorProxy>(predicate1);
   filter_operator1->SetLeftInput(import_operator);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   if (GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kPartitionedHashJoin ||
       GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kSortMergeJoin) {
     // Partition by custkey.
@@ -379,8 +381,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   if (GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kPartitionedHashJoin ||
       GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kSortMergeJoin) {
     // Partition by custkey.
@@ -426,8 +429,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   if (GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kPartitionedHashJoin ||
       GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kSortMergeJoin) {
     // Partition by orderkey.
@@ -487,8 +491,9 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
-  auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  auto export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   if (GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kPartitionedHashJoin ||
       GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kSortMergeJoin) {
     // Partition by orderkey.
@@ -592,7 +597,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   limit_operator->SetLeftInput(sort_operator);
 
   auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(limit_operator);
 
   const auto output_objects =
@@ -652,7 +657,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   alias_operator->SetLeftInput(limit_operator);
 
   auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat, false);
   export_operator->SetLeftInput(alias_operator);
 
   const std::string pipeline_id = "pipeline-6";
@@ -740,8 +745,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline1(
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator2);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   switch (GetJoinAlgorithmForPipeline(successor_pipeline_id)) {
     case JoinAlgorithm::kPartitionedHashJoin:
     case JoinAlgorithm::kSortMergeJoin: {
@@ -797,8 +803,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline2(
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 2, 5, 6});
   import_operator->SetIdentity(left_import_id);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   switch (GetJoinAlgorithmForPipeline(successor_pipeline_id)) {
     case JoinAlgorithm::kPartitionedHashJoin:
     case JoinAlgorithm::kSortMergeJoin: {
@@ -861,8 +868,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline3(
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   switch (GetJoinAlgorithmForPipeline(successor_pipeline_id)) {
     case JoinAlgorithm::kPartitionedHashJoin:
     case JoinAlgorithm::kSortMergeJoin: {
@@ -938,8 +946,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline4(
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator1);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   switch (GetJoinAlgorithmForPipeline(successor_pipeline_id)) {
     case JoinAlgorithm::kPartitionedHashJoin:
     case JoinAlgorithm::kSortMergeJoin: {
@@ -1001,8 +1010,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline5(
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(join_operator);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   switch (GetJoinAlgorithmForPipeline(successor_pipeline_id)) {
     case JoinAlgorithm::kPartitionedHashJoin:
     case JoinAlgorithm::kSortMergeJoin: {
@@ -1016,6 +1026,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline5(
     }
     case JoinAlgorithm::kBroadcastHashJoin:
       export_operator->SetLeftInput(projection_operator);
+      break;
   }
 
   const auto output_objects =
@@ -1067,8 +1078,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline6(
       std::make_shared<ImportOperatorProxy>(std::vector<ObjectReference>{}, std::vector<ColumnId>{0, 3});
   import_operator->SetIdentity(left_import_id);
 
-  std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  std::shared_ptr<ExportOperatorProxy> export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   switch (GetJoinAlgorithmForPipeline(successor_pipeline_id)) {
     case JoinAlgorithm::kPartitionedHashJoin:
     case JoinAlgorithm::kSortMergeJoin: {
@@ -1144,7 +1156,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline7(
   aggregate_operator->SetLeftInput(projection_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(aggregate_operator);
 
   const auto output_objects =
@@ -1202,7 +1214,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline8(
   sort_operator->SetLeftInput(aggregate_operator);
 
   auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kFinalResultsExportFormat, false);
   export_operator->SetLeftInput(sort_operator);
 
   const std::string pipeline_id = "pipeline-8";
@@ -1303,7 +1315,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   aggregate_operator->SetLeftInput(projection_operator);
 
   const auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(aggregate_operator);
 
   const std::string pipeline_id = "pipeline-1";
@@ -1334,7 +1346,8 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto alias_operator = std::make_shared<AliasOperatorProxy>(column_ids_alias, aliases);
   alias_operator->SetLeftInput(aggregate_operator);
 
-  const auto export_operator = std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), FileFormat::kCsv);
+  const auto export_operator =
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), FileFormat::kCsv, false);
   export_operator->SetLeftInput(alias_operator);
 
   const std::string pipeline_id = "pipeline-2";
@@ -1397,8 +1410,9 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline1(
   const auto projection_operator = std::make_shared<ProjectionOperatorProxy>(expressions);
   projection_operator->SetLeftInput(filter_operator4);
 
-  const auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+  const auto export_operator = std::make_shared<ExportOperatorProxy>(
+      ObjectReference("mock", "mock"), kIntermediateResultsExportFormat,
+      GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kBroadcastHashJoin);
   if (GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kPartitionedHashJoin ||
       GetJoinAlgorithmForPipeline(successor_pipeline_id) == JoinAlgorithm::kSortMergeJoin) {
     const auto partition_operator = std::make_shared<PartitionOperatorProxy>(
@@ -1440,7 +1454,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline2(
   partition_operator->SetLeftInput(import_operator);
 
   std::shared_ptr<ExportOperatorProxy> export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(partition_operator);
 
   const size_t worker_count = GetWorkerCount(pipeline_id);
@@ -1497,7 +1511,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline3(
   aggregate_operator->SetLeftInput(projection_operator);
 
   auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(aggregate_operator);
 
   const auto output_objects =
@@ -1556,7 +1570,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline4(
   alias_operator->SetLeftInput(sort_operator);
 
   auto export_operator =
-      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat);
+      std::make_shared<ExportOperatorProxy>(ObjectReference("mock", "mock"), kIntermediateResultsExportFormat, false);
   export_operator->SetLeftInput(alias_operator);
 
   const std::string pipeline_id = "pipeline-4";

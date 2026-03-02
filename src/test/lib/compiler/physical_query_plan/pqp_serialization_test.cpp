@@ -46,7 +46,7 @@ TEST_F(PqpSerializationTest, LinearOperatorChain) {
   const auto import_proxy = ImportOperatorProxy::Make(source_objects_, column_ids_);
   const auto filter_proxy = FilterOperatorProxy::Make(
       GreaterThanEquals_(PqpColumn_(ColumnId{0}, DataType::kLong, false, "a"), 100), import_proxy);
-  const auto export_proxy = ExportOperatorProxy::Make(target_object_, FileFormat::kOrc, filter_proxy);
+  const auto export_proxy = ExportOperatorProxy::Make(target_object_, FileFormat::kOrc, false, filter_proxy);
 
   const std::string serialized_proxy = SerializePqp(export_proxy);
   const auto deserialized_proxy = DeserializePqp(serialized_proxy);
@@ -107,7 +107,7 @@ TEST_F(PqpSerializationTest, CyclicGraph) {
   const auto import_proxy = ImportOperatorProxy::Make(source_objects_, column_ids_);
   const auto filter_proxy = FilterOperatorProxy::Make(
       GreaterThanEquals_(PqpColumn_(ColumnId{0}, DataType::kLong, false, "a"), 100), import_proxy);
-  const auto export_proxy = ExportOperatorProxy::Make(target_object_, FileFormat::kOrc, filter_proxy);
+  const auto export_proxy = ExportOperatorProxy::Make(target_object_, FileFormat::kOrc, false, filter_proxy);
   import_proxy->SetLeftInput(export_proxy);
 
   const std::string serialized_proxy = SerializePqp(export_proxy);
