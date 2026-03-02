@@ -92,6 +92,8 @@ void SortedMergeJoinOperator::FillPositionLists() {
     dangling_tuples_table_B_count_ = 0;
     dangling_tuples_table_B_offsets_.reserve(RightInputTable()->ChunkCount());
 
+    position_lists_.resize(table_B->ChunkCount());
+
     std::vector<std::vector<bool>> dangling_tuples_right;
     dangling_tuples_right.reserve(RightInputTable()->ChunkCount());
     for (ChunkId right_chunk_id = 0; right_chunk_id < RightInputTable()->ChunkCount(); ++right_chunk_id) {

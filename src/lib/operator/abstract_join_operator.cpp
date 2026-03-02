@@ -68,7 +68,6 @@ std::shared_ptr<const Table> AbstractJoinOperator::OnExecute(
   Assert(LeftInputTable()->ColumnDataType(predicate_->column_id_left) ==
              RightInputTable()->ColumnDataType(predicate_->column_id_right),
          "Left and right join column must have the same type.");
-  InitializeAuxiliaryDataStructures();
 
   // Data structures for result table.
   std::vector<std::shared_ptr<Chunk>> output_chunks;
@@ -95,10 +94,6 @@ std::shared_ptr<const Table> AbstractJoinOperator::OnExecute(
   }
 
   return std::make_shared<Table>(definitions, std::move(output_chunks));
-}
-
-void AbstractJoinOperator::InitializeAuxiliaryDataStructures() {
-  position_lists_ = PositionLists(RightInputTable()->ChunkCount());
 }
 
 void AbstractJoinOperator::MaterializeMatches(const size_t result_column_count, const size_t result_row_count,

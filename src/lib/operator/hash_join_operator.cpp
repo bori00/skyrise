@@ -120,6 +120,8 @@ void HashJoinOperator::FillPositionLists() {
     auto build_side_table = table_A = table_A_matches_left ? LeftInputTable() : RightInputTable();
     auto probe_side_table = table_B = table_A_matches_left ? RightInputTable() : LeftInputTable();
 
+    position_lists_.resize(probe_side_table->ChunkCount());
+
     dangling_tuples_table_A_count_ = build_side_table->RowCount();
     dangling_tuples_table_A_.reserve(build_side_table->ChunkCount());
     dangling_tuples_table_B_count_ = 0;

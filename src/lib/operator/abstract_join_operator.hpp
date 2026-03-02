@@ -48,8 +48,6 @@ class AbstractJoinOperator : public AbstractOperator {
   std::shared_ptr<const Table> OnExecute(
       const std::shared_ptr<OperatorExecutionContext>& operator_execution_context) override;
 
-  void InitializeAuxiliaryDataStructures();
-
   TableColumnDefinitions BuildLeftSchema() const;
   TableColumnDefinitions BuildRightSchema() const;
 
