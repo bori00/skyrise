@@ -11,7 +11,7 @@ namespace skyrise {
 class ExportOperatorProxy : public EnableMakeForPlanNode<ExportOperatorProxy, AbstractOperatorProxy>,
                             public AbstractOperatorProxy {
  public:
-  ExportOperatorProxy(ObjectReference target_object, FileFormat export_format);
+  ExportOperatorProxy(ObjectReference target_object, FileFormat export_format, bool consolidate_row_groups);
 
   const std::string& Name() const override;
   std::string Description(const DescriptionMode mode) const override;
@@ -52,6 +52,7 @@ class ExportOperatorProxy : public EnableMakeForPlanNode<ExportOperatorProxy, Ab
  private:
   ObjectReference target_object_;
   FileFormat export_format_;
+  bool consolidate_row_groups_;
 };
 
 }  // namespace skyrise
