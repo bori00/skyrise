@@ -84,7 +84,7 @@ TEST_P(ExportOperatorTest, ExportToFormat) {
   const std::string bucket_name = "MockBucket";
 
   auto export_operator =
-      std::make_shared<ExportOperator>(mock_input_operator, bucket_name, output_object_name, export_format);
+      std::make_shared<ExportOperator>(mock_input_operator, bucket_name, output_object_name, export_format, false);
 
   auto operator_execution_context = std::make_shared<OperatorExecutionContext>(
       nullptr,
@@ -125,7 +125,7 @@ TEST_F(ExportOperatorTest, OperatorWorksWithDifferentExportFormats) {
     auto storage = std::make_shared<MockStorage>();
 
     auto export_operator =
-        std::make_shared<ExportOperator>(mock_input_operator, "MockBucket", output_object_name, format);
+        std::make_shared<ExportOperator>(mock_input_operator, "MockBucket", output_object_name, format, false);
 
     auto operator_execution_context = std::make_shared<OperatorExecutionContext>(
         nullptr, [&storage](const std::string& /*storage_name*/) { return storage; }, nullptr);

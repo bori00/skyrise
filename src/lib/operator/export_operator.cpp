@@ -14,11 +14,12 @@ const std::string kName = "Export";
 namespace skyrise {
 
 ExportOperator::ExportOperator(std::shared_ptr<const AbstractOperator> input_operator, std::string bucket_name,
-                               std::string target_object_key, FileFormat export_format)
+                               std::string target_object_key, FileFormat export_format, bool consolidate_row_groups)
     : AbstractOperator(OperatorType::kExport, std::move(input_operator)),
       bucket_name_(std::move(bucket_name)),
       target_object_key_(std::move(target_object_key)),
-      export_format_(export_format) {}
+      export_format_(export_format),
+      consolidate_row_groups_(consolidate_row_groups) {}
 
 const std::string& ExportOperator::Name() const { return kName; }
 
@@ -33,7 +34,7 @@ std::unique_ptr<AbstractFormatWriter> ExportOperator::GetWriter() {
       return std::make_unique<OrcFormatWriter>(options);
     }
     case FileFormat::kParquet: {
-      const ParquetFormatWriterOptions options;
+      const ParquetFormatWriterOptions options(consolidate_row_groups_);
       return std::make_unique<ParquetFormatWriter>(options);
     }
       // Missed case will trigger compile-time linter error.

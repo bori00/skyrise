@@ -14,7 +14,7 @@ namespace skyrise {
 class ExportOperator : public AbstractOperator {
  public:
   ExportOperator(std::shared_ptr<const AbstractOperator> input_operator, std::string bucket_name,
-                 std::string target_object_key, FileFormat export_format);
+                 std::string target_object_key, FileFormat export_format, bool consolidate_row_groups);
 
   const std::string& Name() const override;
   std::shared_ptr<const Table> OnExecute(const std::shared_ptr<OperatorExecutionContext>& context = nullptr) override;
@@ -29,6 +29,7 @@ class ExportOperator : public AbstractOperator {
   std::string target_object_key_;
   FileFormat export_format_;
   size_t bytes_written_ = 0;
+  bool consolidate_row_groups_ = 0;
 };
 
 }  // namespace skyrise

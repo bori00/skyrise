@@ -40,7 +40,7 @@ class ImportOperatorTest : public ::testing::Test {
 
     std::stringstream output;
     std::shared_ptr<std::stringstream> output_ptr(&output, [](auto /*unused*/) {});
-    ParquetFormatWriter formatter;
+    ParquetFormatWriter formatter(ParquetFormatWriterOptions(false));
     formatter.SetOutputHandler([&output_ptr](const char* data, size_t size) { output_ptr->write(data, size); });
     formatter.Initialize(*mock_schema_);
     for (size_t i = 0; i < number_chunks; ++i) {
