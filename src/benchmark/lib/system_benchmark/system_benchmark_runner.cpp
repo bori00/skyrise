@@ -44,8 +44,7 @@ void SystemBenchmarkRunner::Setup() {
 
   std::cout << "Uploaded functions: " << coordinator_function_name_;
   for (auto& [worker_memory_size_mb, worker_function_name] : worker_memory_size_mb_to_worker_function_name_) {
-    std::cout << "\n Worker of size " << worker_memory_size_mb << " MB: " << worker_function_name;
-    ;
+    std::cout << "\nWorker of size " << worker_memory_size_mb << " MB: " << worker_function_name;
   }
   std::cout << std::endl;
 }
@@ -71,8 +70,10 @@ void SystemBenchmarkRunner::ConstructWorkerFunctionNames() {
       typed_config_->GetWorkerMemorySizeMb().value_or(kDefaultWorkerVCPUCount * kLambdaVcpuEquivalentMemorySizeMb);
   Assert(base_worker_memory_size_mb <= kLambdaMaximumMemorySizeMb,
          "The worker's memory cannot be larger than the maximum allowed by AWS");
+  auto query_view = typed_config_->GetQueryConfiguration().View().Materialize();
+  auto all_pipelines = query_view.View().GetAllObjects();
   int worker_memory_size_mb;
-  for (const auto& [pipeline_id, pipeline_config] : typed_config_->GetQueryConfiguration().View().GetAllObjects()) {
+  for (const auto& [pipeline_id, pipeline_config] : all_pipelines) {
     if (pipeline_config.KeyExists("worker_memory_size_mb")) {
       worker_memory_size_mb = pipeline_config.GetInt64("worker_memory_size_mb");
     } else {
