@@ -8,18 +8,16 @@
 namespace skyrise {
 
 PqpPipeline::PqpPipeline(std::string identity, const std::shared_ptr<AbstractOperatorProxy>& pipeline_plan)
-    : identity_(std::move(identity)) {
+    : PqpPipeline(identity, pipeline_plan, std::nullopt) {}
+
+PqpPipeline::PqpPipeline(std::string pipeline_identity, const std::shared_ptr<AbstractOperatorProxy>& pipeline_plan,
+                         std::optional<size_t> worker_memory_size_mb)
+    : identity_(std::move(pipeline_identity)), worker_memory_size_mb_(worker_memory_size_mb) {
   Assert(!identity_.empty(), "Expected non-empty identity string.");
 
   // Prefix all operator proxies, so that their future logs and metrics can be associated with this pipeline.
   PrefixOperatorProxyIdentities(pipeline_plan, identity_);
   fragment_template_ = std::make_shared<PipelineFragmentTemplate>(pipeline_plan);
-}
-
-PqpPipeline::PqpPipeline(std::string pipeline_identity, const std::shared_ptr<AbstractOperatorProxy>& pipeline_plan,
-                         std::optional<size_t> worker_memory_size_mb) {
-  PqpPipeline(pipeline_identity, pipeline_plan);
-  worker_memory_size_mb_ = worker_memory_size_mb;
 }
 
 const std::string& PqpPipeline::Identity() const { return identity_; }
