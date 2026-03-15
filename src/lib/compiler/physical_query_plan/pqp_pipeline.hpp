@@ -13,6 +13,9 @@ class PqpPipeline : public std::enable_shared_from_this<PqpPipeline>, public Non
  public:
   PqpPipeline(std::string pipeline_identity, const std::shared_ptr<AbstractOperatorProxy>& pipeline_plan);
 
+  PqpPipeline(std::string pipeline_identity, const std::shared_ptr<AbstractOperatorProxy>& pipeline_plan,
+              std::optional<size_t> worker_memory_size_mb);
+
   /**
    * @returns an identity string unique to this PqpPipeline.
    */
@@ -45,6 +48,12 @@ class PqpPipeline : public std::enable_shared_from_this<PqpPipeline>, public Non
   void SetSynthetic(bool state);
   bool IsSynthetic() const;
 
+  /**
+   * Returns the intended worker size for this pipeline, if it was specified. Else, it is assumed that the default size
+   * is used for this pipeline.
+   */
+  std::optional<size_t> WorkerMemorySizeMB() const;
+
  protected:
   const std::string identity_;
   std::shared_ptr<PipelineFragmentTemplate> fragment_template_;
@@ -54,6 +63,8 @@ class PqpPipeline : public std::enable_shared_from_this<PqpPipeline>, public Non
   std::vector<std::shared_ptr<PqpPipeline>> successors_;
 
   bool is_synthetic_pipeline_ = false;
+
+  std::optional<size_t> worker_memory_size_mb_;
 };
 
 std::ostream& operator<<(std::ostream& stream, const PqpPipeline& pipeline);

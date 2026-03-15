@@ -16,6 +16,12 @@ PqpPipeline::PqpPipeline(std::string identity, const std::shared_ptr<AbstractOpe
   fragment_template_ = std::make_shared<PipelineFragmentTemplate>(pipeline_plan);
 }
 
+PqpPipeline::PqpPipeline(std::string pipeline_identity, const std::shared_ptr<AbstractOperatorProxy>& pipeline_plan,
+                         std::optional<size_t> worker_memory_size_mb) {
+  PqpPipeline(pipeline_identity, pipeline_plan);
+  worker_memory_size_mb_ = worker_memory_size_mb;
+}
+
 const std::string& PqpPipeline::Identity() const { return identity_; }
 
 const std::shared_ptr<PipelineFragmentTemplate>& PqpPipeline::PqpPipelineFragmentTemplate() const {

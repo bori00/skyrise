@@ -26,15 +26,17 @@ class TpchPqpGenerator : public AbstractCompiler {
   std::vector<ObjectReference> GenerateOutputObjectIds(size_t count, const std::string& prefix,
                                                        const FileFormat export_format) const;
 
-  static std::shared_ptr<PqpPipeline> GeneratePipeline(const std::string& pipeline_id, const std::string& import_id,
-                                                       const std::shared_ptr<AbstractOperatorProxy>& pqp,
-                                                       const FileFormat& export_format,
-                                                       std::vector<ObjectReference> input_objects,
-                                                       std::vector<ObjectReference> output_objects);
+  std::shared_ptr<PqpPipeline> GeneratePipeline(const std::string& pipeline_id, const std::string& import_id,
+                                                const std::shared_ptr<AbstractOperatorProxy>& pqp,
+                                                const FileFormat& export_format,
+                                                std::vector<ObjectReference> input_objects,
+                                                std::vector<ObjectReference> output_objects) const;
 
   size_t GetStage1PartitionsPerWorkerCount() const;
 
   size_t GetWorkerCount(const std::string pipeline_id) const;
+
+  std::optional<size_t> GetWorkerMemorySizeMb(const std::string pipeline_id) const;
 
   JoinAlgorithm GetJoinAlgorithmForPipeline(const std::string pipeline_id) const;
 

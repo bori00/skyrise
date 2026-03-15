@@ -105,7 +105,7 @@ std::shared_ptr<PqpPipeline> TpchPqpGenerator::GeneratePipeline(const std::strin
                                                                 const std::shared_ptr<AbstractOperatorProxy>& pqp,
                                                                 const FileFormat& export_format,
                                                                 std::vector<ObjectReference> input_objects,
-                                                                std::vector<ObjectReference> output_objects) {
+                                                                std::vector<ObjectReference> output_objects) const {
   Assert(input_objects.size() >= output_objects.size(),
          "In each pipeline, each fragment must have at least one input file.");
   std::vector<std::unordered_map<std::string, std::vector<ObjectReference>>> worker_input_mappings;
@@ -116,7 +116,7 @@ std::shared_ptr<PqpPipeline> TpchPqpGenerator::GeneratePipeline(const std::strin
     worker_input_mappings[i % worker_input_mappings.size()][input_id].push_back(input_objects[i]);
   }
 
-  auto pipeline = std::make_shared<PqpPipeline>(pipeline_id, pqp);
+  auto pipeline = std::make_shared<PqpPipeline>(pipeline_id, pqp, GetWorkerMemorySizeMb(pipeline_id));
   for (size_t i = 0; i < output_objects.size(); ++i) {
     const PipelineFragmentDefinition fragment(worker_input_mappings[i], output_objects[i], export_format);
     pipeline->AddFragmentDefinition(fragment);
@@ -132,6 +132,15 @@ size_t TpchPqpGenerator::GetWorkerCount(const std::string pipeline_id) const {
     }
   }
   return 1;
+}
+
+std::optional<size_t> TpchPqpGenerator::GetWorkerMemorySizeMb(const std::string pipeline_id) const {
+  if (query_configuration_.View().KeyExists(pipeline_id)) {
+    if (query_configuration_.View().GetObject(pipeline_id).KeyExists("worker_memory_size_mb")) {
+      return query_configuration_.View().GetObject(pipeline_id).GetInt64("worker_memory_size_mb");
+    }
+  }
+  return std::nullopt;
 }
 
 JoinAlgorithm TpchPqpGenerator::GetJoinAlgorithmForPipeline(const std::string pipeline_id) const {
@@ -503,7 +512,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto output_objects =
       GenerateOutputObjectIds(GetWorkerCount(pipeline_id), pipeline_id, kIntermediateResultsExportFormat);
 
-  auto pipeline4 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline4 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
 
   std::string left_input_id;
   left_input_id.append(pipeline_id).append("-").append(left_import_id);
@@ -598,7 +607,7 @@ std::pair<std::vector<ObjectReference>, std::shared_ptr<PqpPipeline>> TpchPqpGen
   const auto output_objects =
       GenerateOutputObjectIds(GetWorkerCount(pipeline_id), pipeline_id, kIntermediateResultsExportFormat);
 
-  auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
 
   std::string left_input_id;
   left_input_id.append("pipeline-5").append("-").append(left_import_id);
@@ -773,7 +782,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline1(
   for (size_t i = 0; i < supplier_input_objects.size(); ++i) {
     worker_input_mappings[supplier_input_id].push_back(supplier_input_objects[i]);
   }
-  auto pipeline1 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline1 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
   const PipelineFragmentDefinition fragment(worker_input_mappings, output_objects[0], kIntermediateResultsExportFormat);
   pipeline1->AddFragmentDefinition(fragment);
 
@@ -882,7 +891,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline3(
   const auto output_objects =
       GenerateOutputObjectIds(GetWorkerCount(pipeline_id), pipeline_id, kIntermediateResultsExportFormat);
 
-  auto pipeline3 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline3 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
 
   std::string left_input_id;
   left_input_id.append(pipeline_id).append("-").append(supplier_import_id);
@@ -1021,7 +1030,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline5(
   const auto output_objects =
       GenerateOutputObjectIds(GetWorkerCount(pipeline_id), pipeline_id, kIntermediateResultsExportFormat);
 
-  auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline5 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
 
   std::string orders_input_id;
   orders_input_id.append(pipeline_id).append("-").append(orders_import_id);
@@ -1150,7 +1159,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ5Pipeline7(
   const auto output_objects =
       GenerateOutputObjectIds(GetWorkerCount(pipeline_id), pipeline_id, kIntermediateResultsExportFormat);
 
-  auto pipeline7 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline7 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
 
   std::string customers_input_id;
   customers_input_id.append(pipeline_id).append("-").append(customers_import_id);
@@ -1503,7 +1512,7 @@ TpchPqpGenerator::PipelineData TpchPqpGenerator::GenerateQ12Pipeline3(
   const auto output_objects =
       GenerateOutputObjectIds(GetWorkerCount(pipeline_id), pipeline_id, kIntermediateResultsExportFormat);
 
-  auto pipeline3 = std::make_shared<PqpPipeline>(pipeline_id, export_operator);
+  auto pipeline3 = std::make_shared<PqpPipeline>(pipeline_id, export_operator, GetWorkerMemorySizeMb(pipeline_id));
 
   std::string left_input_id;
   left_input_id.append("pipeline-3").append("-").append(left_import_id);
