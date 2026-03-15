@@ -19,8 +19,12 @@
 
 namespace skyrise {
 
-LambdaExecutor::LambdaExecutor(const std::shared_ptr<const BaseClient>& client, const std::string& worker_function_name)
-    : client_(client), worker_function_name_(worker_function_name) {}
+LambdaExecutor::LambdaExecutor(
+    const std::shared_ptr<const BaseClient>& client, const std::string& worker_function_name,
+    const std::unordered_map<size_t, std::string>& worker_memory_size_mb_to_worker_function_name)
+    : client_(client),
+      worker_function_name_(worker_function_name),
+      worker_memory_size_mb_to_worker_function_name_(worker_memory_size_mb_to_worker_function_name) {}
 
 LambdaExecutor::~LambdaExecutor() {
   for (const auto& sqs_response_queue_url : sqs_response_queue_urls_) {
@@ -38,7 +42,16 @@ void LambdaExecutor::Execute(
                                                   << pqp_pipeline->Identity()
                                                   << " on SQS queue: " << sqs_response_queue_url);
   Aws::Lambda::Model::InvokeRequest invoke_request;
-  invoke_request.WithFunctionName(worker_function_name_).WithInvocationType(Aws::Lambda::Model::InvocationType::Event);
+
+  std::string pipeline_worker_function_name;
+  if (pqp_pipeline->GetWorkerMemorySizeMB().has_value()) {
+    pipeline_worker_function_name =
+        worker_memory_size_mb_to_worker_function_name_[pqp_pipeline->GetWorkerMemorySizeMB().value()];
+  } else {
+    pipeline_worker_function_name = worker_function_name_;
+  }
+  invoke_request.WithFunctionName(pipeline_worker_function_name)
+      .WithInvocationType(Aws::Lambda::Model::InvocationType::Event);
 
   const std::string serialized_pqp_pipeline_template =
       SerializePqp(pqp_pipeline->PqpPipelineFragmentTemplate()->TemplatedPlan());

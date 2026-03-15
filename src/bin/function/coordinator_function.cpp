@@ -1,5 +1,6 @@
 #include "coordinator_function.hpp"
 
+#include <unordered_map>
 #include <vector>
 
 #include <aws/core/utils/json/JsonSerializer.h>
@@ -164,6 +165,19 @@ bool CoordinatorFunction::ValidateRequest(const Aws::Utils::Json::JsonView& requ
          request.KeyExists(kCoordinatorRequestQueryConfigurationAttribute);
 }
 
+static std::unordered_map<size_t, std::string> GetWorkerFunctionNames(
+    const Aws::Utils::Json::JsonView worker_memory_size_mb_to_worker_function_name) {
+  std::unordered_map<size_t, std::string> result;
+  auto worker_memory_size_mb_to_worker_function_names_list = worker_memory_size_mb_to_worker_function_name.AsArray();
+  for (size_t i = 0; i < worker_memory_size_mb_to_worker_function_names_list.GetLength(); i++) {
+    Aws::Utils::Json::JsonView entryView = worker_memory_size_mb_to_worker_function_names_list.GetItem(i);
+    size_t worker_memory_size_mb = entryView.GetInteger("worker_memory_size_mb");
+    const std::string worker_function_name = entryView.GetString("worker_function_name");
+    result[worker_memory_size_mb] = worker_function_name;
+  }
+  return result;
+}
+
 static void AddCostStatisticsToQueryResult(
     size_t coordinator_runtime_ms, size_t coordinator_memory_size_mb, const WorkerStatistics& worker_statistics,
     const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
@@ -181,10 +195,14 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
   const auto compiler_config = AbstractCompilerConfig::FromJson(request);
   const auto compiler = compiler_config->GenerateCompiler();
   const std::vector<std::shared_ptr<PqpPipeline>> pipelines = compiler->GeneratePqp();
-  const std::string worker_function_name = request.GetString(kCoordinatorRequestWorkerFunctionAttribute);
+  const Aws::Utils::Json::JsonView worker_memory_size_mb_to_worker_function_name =
+      request.GetObject(kCoordinatorRequestWorkerFunctionAttribute);
+  const std::unordered_map<size_t, std::string> worker_memory_size_mb_to_worker_function_names_map =
+      GetWorkerFunctionNames(worker_memory_size_mb_to_worker_function_name);
 
   const auto client = std::make_shared<CoordinatorClient>();
-  const auto executor = std::make_shared<LambdaExecutor>(client, worker_function_name);
+  const auto executor =
+      std::make_shared<LambdaExecutor>(client, "", worker_memory_size_mb_to_worker_function_names_map);
 
   try {
     PqpPipelineScheduler scheduler(executor, pipelines);

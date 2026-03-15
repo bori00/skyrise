@@ -52,7 +52,7 @@ class PqpPipeline : public std::enable_shared_from_this<PqpPipeline>, public Non
    * Returns the intended worker size for this pipeline, if it was specified. Else, it is assumed that the default size
    * is used for this pipeline.
    */
-  std::optional<size_t> WorkerMemorySizeMB() const;
+  std::optional<size_t> GetWorkerMemorySizeMB() const { return worker_memory_size_mb_; }
 
  protected:
   const std::string identity_;
