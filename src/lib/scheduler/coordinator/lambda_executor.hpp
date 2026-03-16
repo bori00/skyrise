@@ -30,8 +30,9 @@ class AbstractPqpPipelineFragmentExecutor {
 // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions,hicpp-special-member-functions)
 class LambdaExecutor : public AbstractPqpPipelineFragmentExecutor {
  public:
-  explicit LambdaExecutor(const std::shared_ptr<const BaseClient>& client,
-                          const std::string& worker_function_name = kWorkerFunctionName);
+  explicit LambdaExecutor(
+      const std::shared_ptr<const BaseClient>& client, const std::string& worker_function_name = kWorkerFunctionName,
+      const std::unordered_map<size_t, std::string>& worker_memory_size_mb_to_worker_function_name = {});
   ~LambdaExecutor() override;
 
   void Execute(
@@ -47,6 +48,11 @@ class LambdaExecutor : public AbstractPqpPipelineFragmentExecutor {
 
   const std::shared_ptr<const BaseClient> client_;
   const std::string worker_function_name_;
+  /**
+   * If a worker size is saved in the PqpPipeline, then we'll select the worker function name from this map. Else,
+   * we'll use the default one in the worker_function_name_.
+   */
+  std::unordered_map<size_t, std::string> worker_memory_size_mb_to_worker_function_name_;
   std::vector<std::string> sqs_response_queue_urls_;
   std::vector<std::thread> collector_threads_;
 };

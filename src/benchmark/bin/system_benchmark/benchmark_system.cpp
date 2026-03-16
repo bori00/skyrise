@@ -22,13 +22,16 @@ int main(int argc, char** argv) {
         "If no file is provided, or no parameter is specified for a pipeline, then "
         "* for the join algorithm, a a Partitioned Hash Join will be applied"
         "* for the worker_count, a default of 1 worker will be applied"
+        "* for the worker_memory_size_mb, the globally defined parameter will be applied for each pipeline. If that "
+        "one is missing as well, then the equivalent of 4 vcpus will be used."
         "Note: for the worker count, pipeline N has a join algorithm which requires partitioning, then its predecessor "
         "pipelines will partition data data worker_count-ways. Final pipelines cannot have more than 1 worker."
         "Format: {"
         "'pipeline-<id>': "
         "{"
-        "'join_algorithm': 'BroadcastHashJoin' / 'PartitionedHashJoin'"
-        "'worker_count': <int> "
+        "'join_algorithm': 'BroadcastHashJoin' / 'PartitionedHashJoin',"
+        "'worker_count': <int> ,"
+        "'worker_memory_size_mb': <int>"
         "}",
         cxxopts::value<std::string>());
 

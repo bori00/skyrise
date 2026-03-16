@@ -1,5 +1,6 @@
 #include "coordinator_function.hpp"
 
+#include <unordered_map>
 #include <vector>
 
 #include <aws/core/utils/json/JsonSerializer.h>
@@ -19,6 +20,7 @@ struct PipelineWorkerStatistics final {
   explicit PipelineWorkerStatistics() = default;
 
   size_t fragment_count;
+  size_t worker_memory_size_mb;
 
   std::vector<size_t> fragment_runtimes;
   size_t average_runtime_ms;
@@ -36,6 +38,7 @@ struct PipelineWorkerStatistics final {
     Aws::Utils::Json::JsonValue pipeline_json;
 
     pipeline_json.WithInteger("fragment_count", fragment_count)
+        .WithInt64("worker_memory_size_mb", worker_memory_size_mb)
         .WithInt64("avg_runtime", average_runtime_ms)
         .WithInt64("max_fragment_runtime", max_fragment_runtime_ms)
         .WithInt64("avg_bytes_consumed", average_bytes_consumed)
@@ -66,9 +69,15 @@ struct PipelineWorkerStatistics final {
   }
 };
 
-PipelineWorkerStatistics GetPipelineWorkerStatistics(const std::shared_ptr<skyrise::PqpPipelineTask>& pipeline_task) {
+PipelineWorkerStatistics GetPipelineWorkerStatistics(const std::shared_ptr<skyrise::PqpPipelineTask>& pipeline_task,
+                                                     size_t worker_memory_size_mb) {
   PipelineWorkerStatistics statistics;
   statistics.fragment_count = pipeline_task->fragment_execution_results.size();
+  statistics.worker_memory_size_mb = worker_memory_size_mb;
+  if (pipeline_task.get()->pqp_pipeline->GetWorkerMemorySizeMB().has_value()) {
+    DebugAssert(pipeline_task.get()->pqp_pipeline->GetWorkerMemorySizeMB().value() == worker_memory_size_mb,
+                "Bad worker memory configuration");
+  }
   statistics.max_fragment_runtime_ms = 0;
   statistics.average_runtime_ms = 0;
   statistics.max_bytes_consumed = 0;
@@ -98,7 +107,6 @@ PipelineWorkerStatistics GetPipelineWorkerStatistics(const std::shared_ptr<skyri
 struct WorkerStatistics final {
   explicit WorkerStatistics() = default;
 
-  size_t worker_memory_size_mb{0};
   size_t worker_invocation_count{0};
   size_t worker_accumulated_runtime_ms{0};
   size_t fragments_count{0};
@@ -116,14 +124,10 @@ WorkerStatistics GetWorkerStatistics(const std::vector<std::shared_ptr<skyrise::
       continue;
     }
 
-    if (statistics.worker_memory_size_mb == 0) {
-      statistics.worker_memory_size_mb = fragment_execution_results.front()->function_instance_size_mb;
-    }
-
     statistics.worker_invocation_count += fragment_execution_results.size();
 
     statistics.pipeline_workers_statistics[pipeline_task->pqp_pipeline->Identity()] =
-        GetPipelineWorkerStatistics(pipeline_task);
+        GetPipelineWorkerStatistics(pipeline_task, fragment_execution_results.front()->function_instance_size_mb);
 
     for (const auto& fragment_execution_result : fragment_execution_results) {
       statistics.fragments_count++;
@@ -164,6 +168,19 @@ bool CoordinatorFunction::ValidateRequest(const Aws::Utils::Json::JsonView& requ
          request.KeyExists(kCoordinatorRequestQueryConfigurationAttribute);
 }
 
+static std::unordered_map<size_t, std::string> GetWorkerFunctionNames(
+    const Aws::Utils::Json::JsonView worker_memory_size_mb_to_worker_function_name) {
+  std::unordered_map<size_t, std::string> result;
+  auto worker_memory_size_mb_to_worker_function_names_list = worker_memory_size_mb_to_worker_function_name.AsArray();
+  for (size_t i = 0; i < worker_memory_size_mb_to_worker_function_names_list.GetLength(); i++) {
+    Aws::Utils::Json::JsonView entryView = worker_memory_size_mb_to_worker_function_names_list.GetItem(i);
+    size_t worker_memory_size_mb = entryView.GetInteger("worker_memory_size_mb");
+    const std::string worker_function_name = entryView.GetString("worker_function_name");
+    result[worker_memory_size_mb] = worker_function_name;
+  }
+  return result;
+}
+
 static void AddCostStatisticsToQueryResult(
     size_t coordinator_runtime_ms, size_t coordinator_memory_size_mb, const WorkerStatistics& worker_statistics,
     const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
@@ -181,10 +198,14 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
   const auto compiler_config = AbstractCompilerConfig::FromJson(request);
   const auto compiler = compiler_config->GenerateCompiler();
   const std::vector<std::shared_ptr<PqpPipeline>> pipelines = compiler->GeneratePqp();
-  const std::string worker_function_name = request.GetString(kCoordinatorRequestWorkerFunctionAttribute);
+  const Aws::Utils::Json::JsonView worker_memory_size_mb_to_worker_function_name =
+      request.GetObject(kCoordinatorRequestWorkerFunctionAttribute);
+  const std::unordered_map<size_t, std::string> worker_memory_size_mb_to_worker_function_names_map =
+      GetWorkerFunctionNames(worker_memory_size_mb_to_worker_function_name);
 
   const auto client = std::make_shared<CoordinatorClient>();
-  const auto executor = std::make_shared<LambdaExecutor>(client, worker_function_name);
+  const auto executor =
+      std::make_shared<LambdaExecutor>(client, "", worker_memory_size_mb_to_worker_function_names_map);
 
   try {
     PqpPipelineScheduler scheduler(executor, pipelines);
@@ -215,7 +236,6 @@ aws::lambda_runtime::invocation_response CoordinatorFunction::OnHandleRequest(
     Aws::Utils::Json::JsonValue serialized_statistics;
     serialized_statistics.WithInteger(kCoordinatorResponseExecutionRuntimeAttribute, execution_runtime_ms)
         .WithInteger(kCoordinatorResponseMemorySizeAttribute, coordinator_memory_size_mb)
-        .WithInteger(kCoordinatorResponseWorkerMemorySizeAttribute, worker_statistics.worker_memory_size_mb)
         .WithInteger(kCoordinatorResponseWorkerInvocationCountAttribute, worker_statistics.worker_invocation_count)
         .WithInteger(kCoordinatorResponseWorkerAccumulatedRuntimeAttribute,
                      worker_statistics.worker_accumulated_runtime_ms);
@@ -243,9 +263,16 @@ static void AddCostStatisticsToQueryResult(
     const std::optional<std::shared_ptr<RequestTracker>> coordinator_request_tracker,
     Aws::Utils::Json::JsonValue& query_result, const std::shared_ptr<const CostCalculator> cost_calculator) {
   // Get Lambda compute costs.
+  // Coordinator.
   double coordinator_cost = cost_calculator->CalculateCostLambda(coordinator_runtime_ms, coordinator_memory_size_mb);
-  double worker_cost = cost_calculator->CalculateCostLambda(worker_statistics.worker_accumulated_runtime_ms,
-                                                            worker_statistics.worker_memory_size_mb);
+
+  // Workers.
+  double worker_cost = 0;
+  for (auto [_, pipeline_workers_statistic] : worker_statistics.pipeline_workers_statistics) {
+    worker_cost += cost_calculator->CalculateCostLambda(
+        pipeline_workers_statistic.average_runtime_ms * pipeline_workers_statistic.fragment_count,
+        pipeline_workers_statistic.worker_memory_size_mb);
+  }
   double compute_cost = coordinator_cost + worker_cost;
 
   Aws::Utils::Json::JsonValue request_count_statistics;
